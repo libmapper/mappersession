@@ -1,0 +1,178 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "http://example.com/example.json",
+    "title": "Mapping Session",
+    "description": "A libmapper mapping session",
+    "type": "object",
+    "required": [
+        "fileversion",
+        "description",
+        "views",
+        "destinationValues",
+        "maps"
+    ],
+    "properties": {
+        "fileversion": {
+            "type": "string",
+            "description": "Version of this schema",
+            "examples": [
+                "2.3"
+            ]
+        },
+        "description": {
+            "type": "string",
+            "description": "A short description of this session",
+            "examples": [
+                "I am a session connecting TouchDesigner to Ableton Live."
+            ]
+        },
+        "views": {
+            "type": "array",
+            "description": "Array of graphical interface related metadata readable by particular applications",
+            "items": {
+            	"type": "object",
+            	"description": "Metadata from a single interface",
+            	"required": [
+            		"name",
+            		"data"
+            	],
+            	"properties": {
+            		"name": {
+                        "type": "string",
+                        "description": "The name of the interface program"
+                    },
+                    "data": {
+                        "type": "object",
+                        "description": "Arbitrary metadata for the interface to visualize the session",
+                    }
+            	}
+            },
+            "uniqueItems": true
+        },
+        "destinationValues": {
+            "type": "array",
+            "description": "Default values for unmapped destination signals",
+            "items": {
+                "type": "object",
+                "description": "One destination signal and its value",
+                "required": [
+                    "name",
+                    "type",
+                    "value"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the destination signal in OSC form",
+                        "examples": [
+                            "Mapper4Live.1/frequency"
+                        ]
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "The data type of the destination signal in c primitive form",
+                        "examples": [
+                            "float",
+                            "int"
+                        ]
+                    },
+                    "value": {
+                        "type": "number",
+                        "description": "The value of the destination signal",
+                        "examples": [
+                            0.25
+                        ]
+                    }
+                }
+            },
+            "uniqueItems": true
+        },
+        "maps": {
+            "type": "array",
+            "description": "The maps in the session",
+            "items": {
+                "type": "object",
+                "description": "One map made up of sources, destinations and an expression",
+                "required": [
+                    "sources",
+                    "destinations",
+                    "expression",
+                    "muted",
+                    "process_loc",
+                    "protocol",
+                    "scope",
+                    "use_inst",
+                    "version"
+                ],
+                "properties": {
+                    "sources": {
+                        "type": "array",
+                        "description": "Source signals in the map",
+                        "items": {
+                            "type": "string",
+                            "examples": [
+                            	"Mapper4Live.1/src1"
+                            ]
+                        }
+                    },
+                    "destinations": {
+                        "type": "array",
+                        "description": "Destination signals in the map",
+                        "items": {
+                            "type": "string",
+                            "examples": [
+                            	"Mapper4Live.1/dst1"
+                            ]
+                        }
+                    },
+                    "expression": {
+                        "type": "string",
+                        "description": "The mapping expression between the sources and destinations",
+                        "examples": [
+                            "y=x;"
+                        ]
+                    },
+                    "muted": {
+                        "type": "boolean",
+                        "description": "If the map is muted in the beginning of the session"
+                    },
+                    "process_loc": {
+                        "type": "string",
+                        "description": "Process location of the map",
+                        "examples": [
+                            "SOURCE",
+                            "DESTINATION"
+                        ]
+                    },
+                    "protocol": {
+                        "type": "string",
+                        "description": "The protocol used for the map",
+                        "examples": [
+                            "UDP",
+                            "TCP"
+                        ]
+                    },
+                    "scope": {
+                        "type": "array",
+                        "description": "Devices in the scope of the map",
+                        "items": {
+                            "type": "string",
+                            "description": "Device names in OSC form",
+                            "examples": [
+                                "Mapper4Live.1"
+                            ]
+                        }
+                    },
+                    "use_inst": {
+                        "type": "boolean",
+                        "description": "Determines if signal instances are used in the map"
+                    },
+                    "version": {
+                        "type": "integer",
+                        "title": "Map version, currently always 0"
+                    }
+                }
+            }
+        }
+    }
+}

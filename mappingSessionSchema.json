@@ -92,7 +92,7 @@
             "description": "The maps in the session",
             "items": {
                 "type": "object",
-                "description": "One map made up of sources, destinations and an expression",
+                "description": "One map in the session",
                 "required": [
                     "sources",
                     "destinations",

@@ -17,12 +17,13 @@ def main():
         print("Not enough arguments provided, please use --save or --load with JSON file path(s)")
         return
 
-def save(filename, description, viewName="", views={}):
+def save(filename, description, viewName="", values=[], views={}):
     """saves the current mapping state as a JSON session file.
     
     :param file: The JSON file to save the session into 
     :param description: A short description of the current session
     :param viewName: Name of the GUI that's adding metadata
+    :param values: Array of {name, value} pairs for signals to set on session load
     :param views: GUI related object for recreating the session
     :return: The session JSON object
     """
@@ -31,11 +32,12 @@ def save(filename, description, viewName="", views={}):
     session = {}
     session["fileversion"] = "2.3"
     session["description"] = description.strip("'")
+    session["values"] = values
     session["views"] = views
 
     # Populate maps
     g = mpr.Graph()
-    print("Collecting session state from network...")
+    print("Collecting maps from network...")
     g.poll(1000)
     session["maps"] = []
     for mapIdx in range(len(g.maps())):
@@ -44,33 +46,31 @@ def save(filename, description, viewName="", views={}):
         srcSigs = g.maps()[mapIdx].signals(mpr.Location.SOURCE)
         newMap["sources"] = []
         for srcIdx in range(len(srcSigs)):
-            srcName = (srcSigs[srcIdx].device().get_property(mpr.Property.NAME) +
-                        "/" + srcSigs[srcIdx].get_property(mpr.Property.NAME))
+            srcName = (srcSigs[srcIdx].device()[mpr.Property.NAME] +
+                        "/" + srcSigs[srcIdx][mpr.Property.NAME])
             newMap["sources"].append(srcName)
         # Destination signals
         dstSigs = g.maps()[mapIdx].signals(mpr.Location.DESTINATION)
         newMap["destinations"] = []
         for dstIdx in range(len(dstSigs)):
-            dstName = (dstSigs[dstIdx].device().get_property(mpr.Property.NAME) +
-                        "/" + dstSigs[dstIdx].get_property(mpr.Property.NAME))
+            dstName = (dstSigs[dstIdx].device()[mpr.Property.NAME] +
+                        "/" + dstSigs[dstIdx][mpr.Property.NAME])
             newMap["destinations"].append(dstName)
 
         # Other properties
-        newMap["expression"] = g.maps()[mapIdx].get_property(mpr.Property.EXPRESSION)
-        newMap["muted"] = g.maps()[mapIdx].get_property(mpr.Property.MUTED)
-        newMap["process_loc"] = g.maps()[mapIdx].get_property(mpr.Property.PROCESS_LOCATION)
-        #newMap["protocol"] = g.maps()[mapIdx].get_property(mpr.Property.PROTOCOL)
-        #newMap["scope"] = g.maps()[mapIdx].get_property(mpr.Property.SCOPE)
-        newMap["use_inst"] = g.maps()[mapIdx].get_property(mpr.Property.USE_INSTANCES)
-        newMap["version"] = g.maps()[mapIdx].get_property(mpr.Property.VERSION)
+        newMap["expression"] = g.maps()[mapIdx][mpr.Property.EXPRESSION]
+        newMap["muted"] = g.maps()[mapIdx][mpr.Property.MUTED]
+        newMap["process_loc"] = g.maps()[mapIdx][mpr.Property.PROCESS_LOCATION]
+        newMap["protocol"] = g.maps()[mapIdx][mpr.Property.PROTOCOL].name
+        newMap["scope"] = []
+        scopeDevs = g.maps()[mapIdx][mpr.Property.SCOPE]
+        for devIdx in range(len(scopeDevs)):
+            newMap["scope"].append(scopeDevs[devIdx][mpr.Property.NAME])
+        newMap["use_inst"] = g.maps()[mapIdx][mpr.Property.USE_INSTANCES]
+        newMap["version"] = g.maps()[mapIdx][mpr.Property.VERSION]
+
         # Add to maps
         session["maps"].append(newMap)
-
-    print(g.maps()[0].get_property(mpr.Property.EXPRESSION))
-    
-
-    # Add unmapped destination signal values
-    session["destinationValues"] = []
 
     # Save into the file
     with open(filename.strip("'"), 'w', encoding='utf-8') as f:

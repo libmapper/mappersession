@@ -12,12 +12,16 @@ def main():
     if (args.save is not None):
         save(args.save, args.description if args.description != None else "")
     elif (args.load is not None):
-        load(args.load, args.clear if args.clear != None else True)
+        should_stage = args.stage if args.stage != None else False
+        should_clear = args.clear if args.clear != None else True
+        load(args.load, should_stage, should_clear)
+    elif (args.clear is not None):
+        clear()
     else:
         print("Not enough arguments provided, please use --save or --load with JSON file path(s)")
         return
 
-def save(filename, description="", values=[], viewName="", views={}):
+def save(filename, description="", values=[], viewName="", views=[]):
     """saves the current mapping state as a JSON session file.
     
     :param file: The JSON file to save the session into 
@@ -86,15 +90,26 @@ def load(files, stage=False, clear=True):
     :return (Dict): visual session information relevant to GUIs
     """
 
+    # TODO: multiple files at once
+
     # Parse session file and prepare flags
+    if len(files) == 0:
+        print("No session files provided, please supply at least one session .json file")
+        return
+    schema = json.load(open("mappingSessionSchema.json"))
+    file = open(files[0].name)
+    data = json.load(file)
+    # Validate session according to schema
+    validate(instance=data, schema=schema)
+
     g = mpr.Graph()
     connected_maps = []
-    staged_maps = []
+    staged_maps = data["maps"]
 
 
     # Clear current session if requested
     if clear:
-        pass
+        clear()
 
     should_run = True
     while should_run:
@@ -103,10 +118,31 @@ def load(files, stage=False, clear=True):
         should_run = stage
         g.poll(1000) # Wait for one second before doing checks again
 
-    # Retrieve views from session file
-    views = []
+    return data["views"]
 
-    return views
+def clear():
+    g = mpr.Graph()
+    g.poll(100)
+    for map in g.maps():
+        map.release()
+        map.push()
+    g.push()
+    g.poll()
+
+def get_views(file, view_name):
+    """retrieves view-related GUI parameters from a session json file
+    
+    :param file (String): The JSON file path to get the views from
+    :param view_name (String): Name of the target view
+    :return (Dict): visual session information relevant to GUIs, None if not found
+    """
+    schema = json.load(open("mappingSessionSchema.json"))
+    data = json.load(open(file))
+    validate(instance=data, schema=schema)
+    for view in data["views"]:
+        if view["name"] == view_name:
+            return view["data"]
+    return None
 
 def createParser():
     parser = argparse.ArgumentParser(description="Save or load a mapping session")
@@ -114,6 +150,9 @@ def createParser():
         '--load', type=argparse.FileType('r'), nargs='+',
         metavar='PATH',
         help="Session JSON file(s) to load")
+    parser.add_argument(
+        '--stage', action=argparse.BooleanOptionalAction,
+        help="Set if missing devices and signals should be staged and reconnected as they appear during session load")
     parser.add_argument(
         '--clear', action=argparse.BooleanOptionalAction,
         help="Set if maps should be cleared during session load, or --no-clear to leave maps")

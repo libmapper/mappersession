@@ -8,7 +8,7 @@
         "fileversion",
         "description",
         "views",
-        "destinationValues",
+        "values",
         "maps"
     ],
     "properties": {
@@ -43,7 +43,7 @@
                     },
                     "data": {
                         "type": "object",
-                        "description": "Arbitrary metadata for the interface to visualize the session",
+                        "description": "Arbitrary metadata for the interface to visualize the session"
                     }
             	}
             },
@@ -51,7 +51,7 @@
         },
         "values": {
             "type": "array",
-            "description": "Default values for destination signals",
+            "description": "Default values for signals",
             "items": {
                 "type": "object",
                 "description": "One signal and its value",
@@ -69,7 +69,7 @@
                     },
                     "value": {
                         "type": "number",
-                        "description": "The value of the destination signal",
+                        "description": "The value of the signal",
                         "examples": [
                             0.25
                         ]

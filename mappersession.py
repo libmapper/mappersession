@@ -5,6 +5,8 @@ import jsonschema
 import libmapper as mpr
 from jsonschema import validate
 
+g = mpr.Graph()
+
 def main():
     # Parse arguments
     parser = createParser()
@@ -64,7 +66,7 @@ def save(filename, description="", values=[], viewName="", views=[]):
         # Other properties
         newMap["expression"] = g.maps()[mapIdx][mpr.Property.EXPRESSION]
         newMap["muted"] = g.maps()[mapIdx][mpr.Property.MUTED]
-        newMap["process_loc"] = g.maps()[mapIdx][mpr.Property.PROCESS_LOCATION]
+        newMap["process_loc"] = mpr.Location(g.maps()[mapIdx][mpr.Property.PROCESS_LOCATION]).name
         newMap["protocol"] = g.maps()[mapIdx][mpr.Property.PROTOCOL].name
         newMap["scope"] = []
         scopeDevs = g.maps()[mapIdx][mpr.Property.SCOPE]
@@ -81,53 +83,84 @@ def save(filename, description="", values=[], viewName="", views=[]):
         json.dump(session, f, ensure_ascii=False, indent=4)
     print("Saved session as: " + filename)
 
-def load(files, stage=False, clear=True):
+def load(files, should_stage=False, should_clear=True):
     """loads one or more sessions with options for staging and cycling.
     
     :param files (List): The JSON files to load
-    :optional param stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
-    :optional param clear (Boolean): Clear all maps before loading the session, default True
+    :optional param should_stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
+    :optional param should_clear (Boolean): Clear all maps before loading the session, default True
     :return (Dict): visual session information relevant to GUIs
     """
 
     # TODO: multiple files at once
 
-    # Parse session file and prepare flags
+    global g
+
+    # Parse session file
     if len(files) == 0:
         print("No session files provided, please supply at least one session .json file")
         return
-    schema = json.load(open("mappingSessionSchema.json"))
     file = open(files[0].name)
     data = json.load(file)
+
     # Validate session according to schema
+    schema = json.load(open("mappingSessionSchema.json"))
     validate(instance=data, schema=schema)
 
-    g = mpr.Graph()
+    # Keep list of staged maps
     connected_maps = []
     staged_maps = data["maps"]
 
-
     # Clear current session if requested
-    if clear:
+    if should_clear:
         clear()
 
     should_run = True
     while should_run:
         # Create all maps that aren't present in the session yet
+        for staged_map in staged_maps:
+            # Check if the map's signals are available
+            srcs = [find_sig(k) for k in staged_map["sources"]]
+            dst = find_sig(staged_map["destinations"][0])
+            if all(srcs) and dst:
+                # Create map and remove from staged list
+                new_map = mpr.Map(srcs, dst)
+                if not new_map:
+                    print('error: failed to create map', staged_map["sources"], "->", staged_map["destinations"])
+                    continue
+                print('created map: ', staged_map["sources"], "->", staged_map["destinations"])
+                # Set map properties
+                new_map[mpr.Property.EXPRESSION] = staged_map["expression"]
+                new_map[mpr.Property.MUTED] = staged_map["muted"]
+                if staged_map["process_loc"] == 'SOURCE':
+                    new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.SOURCE
+                elif staged_map["process_loc"] == 'DESTINATION':
+                    new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.DESTINATION
+                new_map[mpr.Property.PROCESS_LOCATION] = staged_map["process_loc"]
+                if staged_map["protocol"] == 'udp' or staged_map["protocol"] == 'UDP':
+                    new_map[mpr.Property.PROTOCOL] = mpr.Protocol.UDP
+                elif staged_map["protocol"] == 'tcp' or staged_map["protocol"] == 'TCP':
+                    new_map[mpr.Property.PROTOCOL] = mpr.Protocol.TCP
+                # new_map[mpr.Property.SCOPE] = staged_map["scope"]
+                new_map[mpr.Property.USE_INSTANCES] = staged_map["use_inst"]
+                new_map[mpr.Property.VERSION] = staged_map["version"]
+                # Push to network
+                new_map.push()
+                connected_maps.append(staged_map.copy())
+                staged_maps.remove(staged_map)
 
-        should_run = stage
+        should_run = should_stage
         g.poll(1000) # Wait for one second before doing checks again
 
     return data["views"]
 
 def clear():
-    g = mpr.Graph()
-    g.poll(100)
+    global g
+    g.poll(50)
     for map in g.maps():
         map.release()
         map.push()
-    g.push()
-    g.poll()
+    g.poll(50)
 
 def get_views(file, view_name):
     """retrieves view-related GUI parameters from a session json file
@@ -143,6 +176,18 @@ def get_views(file, view_name):
         if view["name"] == view_name:
             return view["data"]
     return None
+
+def find_sig(fullname):
+    global g
+    names = fullname.split('/', 1)
+    dev = g.devices().filter(mpr.Property.NAME, names[0])
+    if dev:
+        sig = dev.next().signals().filter(mpr.Property.NAME, names[1])
+        if not sig:
+            return None
+        return sig.next()
+    else:
+        return None
 
 def createParser():
     parser = argparse.ArgumentParser(description="Save or load a mapping session")

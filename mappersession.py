@@ -117,6 +117,14 @@ def load(files, should_stage=False, should_clear=True):
 
     should_run = True
     while should_run:
+        # Confirm all connected maps are actually connected
+        for connected_map in connected_maps:
+            found_map = find_map(connected_map["sources"], connected_map["destinations"][0])
+            if not found_map:
+                print("map re-staged: ", connected_map["sources"], "->", connected_map["destinations"])
+                staged_maps.append(connected_map.copy())
+                connected_maps.remove(connected_map)
+
         # Create all maps that aren't present in the session yet
         for staged_map in staged_maps:
             # Check if the map's signals are available
@@ -188,6 +196,24 @@ def find_sig(fullname):
         return sig.next()
     else:
         return None
+
+def find_map(srckeys, dstkey):
+    srcs = [find_sig(k) for k in srckeys]
+    dst = find_sig(dstkey)
+    if not (all(srcs) and dst):
+        return None
+    intersect = dst.maps()
+    for s in srcs:
+        intersect = intersect.intersect(s.maps())
+    for m in intersect:
+        match = True
+        match = match and (m.index(dst) >= 0)
+        if match:
+            for s in srcs:
+                match = match and (m.index(s) >= 0)
+        if match:
+            return m
+    return None
 
 def createParser():
     parser = argparse.ArgumentParser(description="Save or load a mapping session")

@@ -1,0 +1,22 @@
+name: Python wheels
+
+on: [push]
+
+jobs:
+  build_wheels:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, macOS-10.15, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+      - name: Build python wheel
+      run:
+        python3 -m pip install --upgrade build
+        && python3 -m build
+      - uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.os }}_wheel
+        path: ./dist/*.whl

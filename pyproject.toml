@@ -11,11 +11,19 @@ authors = [
 description = "Session management tools in python for the libmapper signal mapping framework"
 readme = "README.md"
 requires-python = ">=3.7"
+dependencies = [
+    'jsonschema',
+    'argparse',
+    'libmapper'
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",
     "Operating System :: OS Independent",
 ]
+
+[project.scripts]
+mappersession = "mappersession:main"
 
 [project.urls]
 "Homepage" = "https://github.com/bboettcher3/mappersession"

@@ -18,5 +18,4 @@ jobs:
           && python3 -m build
       - uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.os }}_wheel
           path: ./dist/*.whl

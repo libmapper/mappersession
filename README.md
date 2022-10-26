@@ -33,7 +33,7 @@ Load a session, clear all maps and handle staging of missing connections:
 
 Save the current session and provide a description:
 
-`python -m mappersession --save mysesison.json --description "This session does something cool"`
+`python -m mappersession --save mysession.json --description "This session does something cool"`
 
 ### As a module
 
@@ -43,7 +43,7 @@ Import the module:
 
 Then call save/load functions with function structures detailed below:
 
-`save(filename, description="", values=[], viewName="", views=[])`
+`session.save(filename, description="", values=[], viewName="", views=[])`
 
 saves the current mapping state as a JSON session file.    
 - param file: The JSON file to save the session into 
@@ -53,7 +53,7 @@ saves the current mapping state as a JSON session file.
 - optional param views: GUI related object for recreating the session
 - return: The session JSON object
 
-`load(files, should_stage=False, should_clear=True)`
+`session.load(files, should_stage=False, should_clear=True)`
 
 loads one or more sessions with options for staging and cycling.    
 - param files (List): The JSON files to load

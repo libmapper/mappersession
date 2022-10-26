@@ -14,10 +14,15 @@ usage: [-h] [--load PATH [PATH ...]] [--stage | --no-stage] [--clear | --no-clea
 
 optional arguments:
 -h, --help : Show the help message and exit
+
 --load PATH [PATH ...] : Session JSON file(s) to load
+
 --stage, --no-stage : Set if missing devices and signals should be staged and reconnected as they appear during session load, default false
+
 --clear, --no-clear : Set if maps should be cleared during session load, default true
+
 --save PATH : Save session as JSON file
+
 --description DESCRIPTION : Description of session, used when saving
 
 Examples:

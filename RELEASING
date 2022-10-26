@@ -1,0 +1,14 @@
+mappersession releases live on https://pypi.org/project/mappersession/
+
+contact bradyboettcher@gmail.com about getting access if you're continuing work on the project :)
+
+We use the hatch python library to build the wheels with Github CI, then upload to PyPI using twine.
+
+Making a new release: 
+
+1. Bump the version in pyproject.toml and tag with git with the same version number
+    - e.g., `git tag 0.2.1`
+2. Download the built wheel artifacts in the Actions tab for the release commit
+3. Unzip the wheel artifacts and upload using `python -m twine upload *` inside the folder
+4. Enter __token__ for the username, and copy your PyPI token (unique to your account) for the password
+5. Visit https://pypi.org/project/mappersession/ to confirm the release looks good!

@@ -8,6 +8,7 @@ Making a new release:
 
 1. Bump the version in pyproject.toml and tag with git with the same version number
     - e.g., `git tag 0.2.1`
+    - The README.md will display on the PyPI package, so update it with any notable changes
 2. Download the built wheel artifacts in the Actions tab for the release commit
 3. Unzip the wheel artifacts and upload using `python -m twine upload *` inside the folder
 4. Enter __token__ for the username, and copy your PyPI token (unique to your account) for the password

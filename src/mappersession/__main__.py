@@ -26,17 +26,19 @@ def createParser():
     return parser
 
 if __name__ == '__main__':
-    import mappersession as session
+    from .mappersession import save
+    from .mappersession import load
+    from .mappersession import clear
     # Parse arguments
     parser = createParser()
     args = parser.parse_args()
     if (args.save is not None):
-        session.save(args.save, args.description if args.description != None else "")
+        save(args.save, args.description if args.description != None else "")
     elif (args.load is not None):
         should_stage = args.stage if args.stage != None else False
         should_clear = args.clear if args.clear != None else True
-        session.load(args.load, should_stage, should_clear)
+        load(args.load, should_stage, should_clear)
     elif (args.clear is not None):
-        session.clear()
+        clear()
     else:
         print("Not enough arguments provided, please use --save or --load with JSON file path(s)")

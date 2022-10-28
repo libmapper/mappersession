@@ -61,10 +61,13 @@ def save(filename, description="", values=[], viewName="", views=[]):
         # Add to maps
         session["maps"].append(newMap)
 
-    # Save into the file
-    with open(filename.strip("'"), 'w', encoding='utf-8') as f:
-        json.dump(session, f, ensure_ascii=False, indent=4)
-    print("Saved session as: " + filename)
+    # Save into the file\
+    if filename != "":
+        with open(filename.strip("'"), 'w', encoding='utf-8') as f:
+            json.dump(session, f, ensure_ascii=False, indent=4)
+            print("Saved session as: " + filename)
+    return session
+    
 
 def load(files, should_stage=False, should_clear=True):
     """loads one or more sessions with options for staging and cycling.

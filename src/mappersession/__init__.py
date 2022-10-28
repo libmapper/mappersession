@@ -1,0 +1,1 @@
+from .mappersession import save, load, clear

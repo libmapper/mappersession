@@ -3,18 +3,19 @@ import json
 import jsonschema
 import libmapper as mpr
 from jsonschema import validate
+import pkgutil
 
 g = mpr.Graph()
 
-def save(filename, description="", values=[], viewName="", views=[]):
+def save(filename="", description="", values=[], viewName="", views=[]):
     """saves the current mapping state as a JSON session file.
     
-    :param file: The JSON file to save the session into 
-    :param description: A short description of the current session
-    :optional param values: Array of {name, value} pairs for signals to set on session load
-    :optional param viewName: Name of the GUI that's adding metadata
-    :optional param views: GUI related object for recreating the session
-    :return: The session JSON object
+    :optional param filename (String): The JSON file to save the session into
+    :optional param description (String): A short description of the current session
+    :optional param values (List): Array of signal {name, value} pairs to set on session load
+    :optional param viewName (String): Name of the GUI that's adding metadata
+    :optional param views (List): GUI related object for recreating the session
+    :return (Dict): The session JSON object
     """
 
     # Create JSON from network state following the schema
@@ -67,35 +68,43 @@ def save(filename, description="", values=[], viewName="", views=[]):
             json.dump(session, f, ensure_ascii=False, indent=4)
             print("Saved session as: " + filename)
     return session
-    
 
-def load(files, should_stage=False, should_clear=True):
-    """loads one or more sessions with options for staging and cycling.
+
+def load_file(filename, should_stage=False, should_clear=True):
+    """loads a session file with options for staging and clearing
     
-    :param files (List): The JSON files to load
+    :param filename (String): The JSON file to load
     :optional param should_stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
     :optional param should_clear (Boolean): Clear all maps before loading the session, default True
     :return (Dict): visual session information relevant to GUIs
     """
 
-    # TODO: multiple files at once
+    # Parse session file
+    file = open(filename)
+    data = json.load(file)
+    # Load session
+    views = load_json(data, should_stage, should_clear)
+    return views
+
+def load_json(session_json, should_stage=False, should_clear=True):
+    """loads a session JSON Dict with options for staging and clearing
+    
+    :param session_json (Dict): A session JSON Dict to load
+    :optional param should_stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
+    :optional param should_clear (Boolean): Clear all maps before loading the session, default True
+    :return (Dict): visual session information relevant to GUIs
+    """
 
     global g
 
-    # Parse session file
-    if len(files) == 0:
-        print("No session files provided, please supply at least one session .json file")
-        return
-    file = open(files[0].name)
-    data = json.load(file)
-
     # Validate session according to schema
-    schema = json.load(open("mappingSessionSchema.json"))
-    validate(instance=data, schema=schema)
+    schemaData = pkgutil.get_data(__name__, "mappingSessionSchema.json")
+    schema = json.loads(schemaData.decode("utf-8"))
+    validate(instance=session_json, schema=schema)
 
     # Keep list of staged maps
     connected_maps = []
-    staged_maps = data["maps"]
+    staged_maps = session_json["maps"]
 
     # Clear current session if requested
     if should_clear:
@@ -144,11 +153,13 @@ def load(files, should_stage=False, should_clear=True):
                 staged_maps.remove(staged_map)
 
         should_run = should_stage
-        g.poll(1000) # Wait for one second before doing checks again
+        g.poll(500) # Wait a bit before doing checks again
 
-    return data["views"]
+    return session_json["views"]
 
 def clear():
+    """clears all maps on the network
+    """
     global g
     g.poll(50)
     for map in g.maps():

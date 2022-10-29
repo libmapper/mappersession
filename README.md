@@ -15,7 +15,7 @@ usage: [-h] [--load PATH [PATH ...]] [--stage | --no-stage] [--clear | --no-clea
 optional arguments:
 -h, --help : Show the help message and exit
 
---load PATH [PATH ...] : Session JSON file(s) to load
+--load PATH [PATH ...] : Session JSON file to load
 
 --stage, --no-stage : Set if missing devices and signals should be staged and reconnected as they appear during session load, default false
 
@@ -43,20 +43,26 @@ Import the module:
 
 Then call save/load functions with function structures detailed below:
 
-`session.save(filename, description="", values=[], viewName="", views=[])`
+`session.save(filename="", description="", values=[], viewName="", views=[])`
 
 saves the current mapping state as a JSON session file.    
-- param file: The JSON file to save the session into 
-- param description: A short description of the current session
+- optional param filename: The JSON file to save the session into 
+- optional param description: A short description of the current session
 - optional param values: Array of {name, value} pairs for signals to set on session load
 - optional param viewName: Name of the GUI that's adding metadata
 - optional param views: GUI related object for recreating the session
 - return: The session JSON object
 
-`session.load(files, should_stage=False, should_clear=True)`
+`session.load_file(filename, should_stage=False, should_clear=True)`
+loads a session file with options for staging and clearing
+- param filename (String): The JSON file to load
+- optional param should_stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
+- optional param should_clear (Boolean): Clear all maps before loading the session, default True
+- return (Dict): visual session information relevant to GUIs
 
-loads one or more sessions with options for staging and cycling.    
-- param files (List): The JSON files to load
+`session.load_json(filename, should_stage=False, should_clear=True)`
+loads a session JSON Dict with options for staging and clearing
+- param session_json (Dict): A session JSON Dict to load
 - optional param should_stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
 - optional param should_clear (Boolean): Clear all maps before loading the session, default True
 - return (Dict): visual session information relevant to GUIs

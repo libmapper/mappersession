@@ -100,7 +100,11 @@ def load_json(session_json, should_stage=False, should_clear=True):
     # Validate session according to schema
     schemaData = pkgutil.get_data(__name__, "mappingSessionSchema.json")
     schema = json.loads(schemaData.decode("utf-8"))
-    validate(instance=session_json, schema=schema)
+    try:
+        validate(instance=session_json, schema=schema)
+    except jsonschema.exceptions.ValidationError as err:
+        print(err)
+        return None
 
     # Keep list of staged maps
     connected_maps = []
@@ -111,6 +115,7 @@ def load_json(session_json, should_stage=False, should_clear=True):
         clear()
 
     should_run = True
+    g.poll(50)
     while should_run:
         # Confirm all connected maps are actually connected
         for connected_map in connected_maps:
@@ -121,6 +126,7 @@ def load_json(session_json, should_stage=False, should_clear=True):
                 connected_maps.remove(connected_map)
 
         # Create all maps that aren't present in the session yet
+        created_map = False
         for staged_map in staged_maps:
             # Check if the map's signals are available
             srcs = [find_sig(k) for k in staged_map["sources"]]
@@ -151,9 +157,10 @@ def load_json(session_json, should_stage=False, should_clear=True):
                 new_map.push()
                 connected_maps.append(staged_map.copy())
                 staged_maps.remove(staged_map)
+                created_map = True
 
-        should_run = should_stage
-        g.poll(500) # Wait a bit before doing checks again
+        should_run = should_stage or created_map
+        g.poll(50) # Wait a bit before doing checks again
 
     return session_json["views"]
 

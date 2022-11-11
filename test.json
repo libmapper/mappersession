@@ -9,27 +9,9 @@
                 "dev1.1/out1"
             ],
             "destinations": [
-                "dev2.1/reverb"
-            ],
-            "expression": "sMin=0;sMax=127;dMin=0;dMax=127;sRange=sMax-sMin;m=sRange?((dMax-dMin)/sRange):0;b=sRange?(dMin*sMax-dMax*sMin)/sRange:dMin;y=m*x+b;",
-            "muted": false,
-            "process_loc": "SOURCE",
-            "protocol": "UDP",
-            "scope": [
-                "dev1.1"
-            ],
-            "use_inst": false,
-            "version": 0
-        },
-        {
-            "sources": [
-                "dev1.1/out2",
-                "dev1.1/out1"
-            ],
-            "destinations": [
                 "dev2.1/drywet"
             ],
-            "expression": "sMin=0;sMax=127;dMin=0;dMax=127;sRange=sMax-sMin;m=sRange?((dMax-dMin)/sRange):0;b=sRange?(dMin*sMax-dMax*sMin)/sRange:dMin;y=(m*x$0+b)+(1*x$1+0);",
+            "expression": "sMin=0;sMax=127;dMin=0;dMax=127;sRange=sMax-sMin;m=sRange?((dMax-dMin)/sRange):0;b=sRange?(dMin*sMax-dMax*sMin)/sRange:dMin;y=m*x+b;",
             "muted": false,
             "process_loc": "SOURCE",
             "protocol": "UDP",

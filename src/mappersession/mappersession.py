@@ -4,16 +4,22 @@ import jsonschema
 import libmapper as mpr
 from jsonschema import validate
 import pkgutil
+import threading
 
 g = mpr.Graph()
+staging_thread = None
+kill_staging = False
+# Bookkeeping for maps
+connected_maps = []
+staged_maps = []
 
-def save(filename="", description="", values=[], viewName="", views=[]):
+def save(filename="", description="", values=[], view_name="", views=[]):
     """saves the current mapping state as a JSON session file.
     
     :optional param filename (String): The JSON file to save the session into
     :optional param description (String): A short description of the current session
     :optional param values (List): Array of signal {name, value} pairs to set on session load
-    :optional param viewName (String): Name of the GUI that's adding metadata
+    :optional param view_name (String): Name of the GUI that's adding metadata
     :optional param views (List): GUI related object for recreating the session
     :return (Dict): The session JSON object
     """
@@ -69,13 +75,72 @@ def save(filename="", description="", values=[], viewName="", views=[]):
             print("Saved session as: " + filename)
     return session
 
+# Internal staging method to be used in a thread
+# maps that should be staged should be added to the global 'staged_maps'
+def stage():
+    global kill_staging, staged_maps, connected_maps
+    kill_staging = False
+    print("Starting session staging")
+    while True:
+        if kill_staging:
+            print("Ending session staging")
+            break
+        else:
+            g.poll(100)
+            # Re-stage any missing "connected" maps
+            for connected_map in connected_maps:
+                found_map = find_map(connected_map["sources"], connected_map["destinations"][0])
+                if not found_map:
+                    print("map re-staged: ", connected_map["sources"], "->", connected_map["destinations"])
+                    staged_maps.append(connected_map.copy())
+                    connected_maps.remove(connected_map)
+            # Try to create any staged maps that we can
+            new_maps = try_make_maps(staged_maps)
+            for new_map in new_maps:
+                connected_maps.append(new_map.copy())
+                staged_maps.remove(new_map)
 
-def load_file(filename, should_stage=False, should_clear=True):
+# Attempts to create any eligible maps that have all sources and destination present 
+def try_make_maps(maps):
+    new_maps = []
+    for map in maps:
+        # Check if the map's signals are available
+        srcs = [find_sig(k) for k in map["sources"]]
+        dst = find_sig(map["destinations"][0])
+        if all(srcs) and dst:
+            # Create map and remove from staged list
+            new_map = mpr.Map(srcs, dst)
+            if not new_map:
+                print('error: failed to create map', map["sources"], "->", map["destinations"])
+                continue
+            print('created map: ', map["sources"], "->", map["destinations"])
+            # Set map properties
+            new_map[mpr.Property.EXPRESSION] = map["expression"]
+            new_map[mpr.Property.MUTED] = map["muted"]
+            if map["process_loc"] == 'SOURCE':
+                new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.SOURCE
+            elif map["process_loc"] == 'DESTINATION':
+                new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.DESTINATION
+            new_map[mpr.Property.PROCESS_LOCATION] = map["process_loc"]
+            if map["protocol"] == 'udp' or map["protocol"] == 'UDP':
+                new_map[mpr.Property.PROTOCOL] = mpr.Protocol.UDP
+            elif map["protocol"] == 'tcp' or map["protocol"] == 'TCP':
+                new_map[mpr.Property.PROTOCOL] = mpr.Protocol.TCP
+            # new_map[mpr.Property.SCOPE] = map["scope"]
+            new_map[mpr.Property.USE_INSTANCES] = map["use_inst"]
+            new_map[mpr.Property.VERSION] = map["version"]
+            # Push to network
+            new_map.push()
+            new_maps.append(map.copy())
+    return new_maps
+
+def load_file(filename, should_stage=False, should_clear=True, in_bg=True):
     """loads a session file with options for staging and clearing
     
     :param filename (String): The JSON file to load
     :optional param should_stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
     :optional param should_clear (Boolean): Clear all maps before loading the session, default True
+    :optional param in_bg (Boolean): True if any staging should happen in a background thread, default True 
     :return (Dict): visual session information relevant to GUIs
     """
 
@@ -83,19 +148,20 @@ def load_file(filename, should_stage=False, should_clear=True):
     file = open(filename)
     data = json.load(file)
     # Load session
-    views = load_json(data, should_stage, should_clear)
+    views = load_json(data, should_stage, should_clear, in_bg)
     return views
 
-def load_json(session_json, should_stage=False, should_clear=True):
+def load_json(session_json, should_stage=False, should_clear=True, in_bg=True):
     """loads a session JSON Dict with options for staging and clearing
     
     :param session_json (Dict): A session JSON Dict to load
     :optional param should_stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
     :optional param should_clear (Boolean): Clear all maps before loading the session, default True
+    :optional param in_bg (Boolean): True if any staging should happen in a background thread, default True 
     :return (Dict): visual session information relevant to GUIs
     """
 
-    global g
+    global g, staging_thread, staged_maps
 
     # Validate session according to schema
     schemaData = pkgutil.get_data(__name__, "mappingSessionSchema.json")
@@ -106,68 +172,34 @@ def load_json(session_json, should_stage=False, should_clear=True):
         print(err)
         return None
 
-    # Keep list of staged maps
-    connected_maps = []
-    staged_maps = session_json["maps"]
-
     # Clear current session if requested
     if should_clear:
         clear()
 
-    should_run = True
-    g.poll(50)
-    while should_run:
-        # Confirm all connected maps are actually connected
-        for connected_map in connected_maps:
-            found_map = find_map(connected_map["sources"], connected_map["destinations"][0])
-            if not found_map:
-                print("map re-staged: ", connected_map["sources"], "->", connected_map["destinations"])
-                staged_maps.append(connected_map.copy())
-                connected_maps.remove(connected_map)
-
-        # Create all maps that aren't present in the session yet
-        created_map = False
-        for staged_map in staged_maps:
-            # Check if the map's signals are available
-            srcs = [find_sig(k) for k in staged_map["sources"]]
-            dst = find_sig(staged_map["destinations"][0])
-            if all(srcs) and dst:
-                # Create map and remove from staged list
-                new_map = mpr.Map(srcs, dst)
-                if not new_map:
-                    print('error: failed to create map', staged_map["sources"], "->", staged_map["destinations"])
-                    continue
-                print('created map: ', staged_map["sources"], "->", staged_map["destinations"])
-                # Set map properties
-                new_map[mpr.Property.EXPRESSION] = staged_map["expression"]
-                new_map[mpr.Property.MUTED] = staged_map["muted"]
-                if staged_map["process_loc"] == 'SOURCE':
-                    new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.SOURCE
-                elif staged_map["process_loc"] == 'DESTINATION':
-                    new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.DESTINATION
-                new_map[mpr.Property.PROCESS_LOCATION] = staged_map["process_loc"]
-                if staged_map["protocol"] == 'udp' or staged_map["protocol"] == 'UDP':
-                    new_map[mpr.Property.PROTOCOL] = mpr.Protocol.UDP
-                elif staged_map["protocol"] == 'tcp' or staged_map["protocol"] == 'TCP':
-                    new_map[mpr.Property.PROTOCOL] = mpr.Protocol.TCP
-                # new_map[mpr.Property.SCOPE] = staged_map["scope"]
-                new_map[mpr.Property.USE_INSTANCES] = staged_map["use_inst"]
-                new_map[mpr.Property.VERSION] = staged_map["version"]
-                # Push to network
-                new_map.push()
-                connected_maps.append(staged_map.copy())
-                staged_maps.remove(staged_map)
-                created_map = True
-
-        should_run = should_stage or created_map
-        g.poll(50) # Wait a bit before doing checks again
+    if should_stage:
+        staged_maps.extend(session_json["maps"])
+        if staging_thread == None:
+            if in_bg:
+                staging_thread = threading.Thread(target = stage, daemon = True)
+                staging_thread.start()
+            else:
+                stage()
+    else:
+        # Try twice to make maps (sometimes doesn't get them all on the first pass for some reason)
+        g.poll(50)
+        new_maps = try_make_maps(session_json["maps"])
+        g.poll(50)
+        session_json["maps"] = [x for x in session_json["maps"] if x not in new_maps]
+        try_make_maps(session_json["maps"])
 
     return session_json["views"]
 
 def clear():
     """clears all maps on the network
     """
-    global g
+    global g, staged_maps, connected_maps
+    staged_maps = []
+    connected_maps = []
     g.poll(50)
     for map in g.maps():
         map.release()

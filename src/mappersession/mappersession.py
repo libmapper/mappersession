@@ -1,10 +1,15 @@
 import sys
+import platform
 import json
 import jsonschema
 import libmapper as mpr
 from jsonschema import validate
 import pkgutil
 import threading
+if platform.system() == 'Windows':
+    import msvcrt
+else:
+    import select
 
 g = mpr.Graph()
 staging_thread = None
@@ -12,6 +17,9 @@ kill_staging = False
 # Bookkeeping for maps
 connected_maps = []
 staged_maps = []
+# Session cycling files
+cur_session_idx = 0
+session_cycling_filenames = []
 
 def save(filename="", description="", values=[], view_name="", views=[]):
     """saves the current mapping state as a JSON session file.
@@ -95,10 +103,13 @@ def stage():
                     staged_maps.append(connected_map.copy())
                     connected_maps.remove(connected_map)
             # Try to create any staged maps that we can
-            new_maps = try_make_maps(staged_maps)
-            for new_map in new_maps:
-                connected_maps.append(new_map.copy())
-                staged_maps.remove(new_map)
+            try:
+                new_maps = try_make_maps(staged_maps)
+                for new_map in new_maps:
+                    connected_maps.append(new_map.copy())
+                    staged_maps.remove(new_map)
+            except:
+                pass
 
 # Attempts to create any eligible maps that have all sources and destination present 
 def try_make_maps(maps):
@@ -133,6 +144,51 @@ def try_make_maps(maps):
             new_map.push()
             new_maps.append(map.copy())
     return new_maps
+
+def cycle_files(filenames):
+    """manages cycling through multiple session files. A libmapper signal is created
+    that changes which session is currently active, or users can use the left/right
+    arrow keys to change sessions.
+    
+    :param filenames (String): The JSON files to load (1st is loaded immediately)
+    :return (None): Blocks while executing, should CTL+C or hit 'e' to exit
+    """
+
+    global session_cycling_filenames, cur_session_idx
+
+    cur_session_idx = 0
+    session_cycling_filenames = filenames
+
+    # Load first session file
+    load_file(filenames[0], True)
+
+    # Set up libmapper signal that controls the current session index
+    dev = mpr.Device("mappersession")
+    sig_cur_session = dev.add_signal(mpr.Direction.INCOMING, "cur_session_idx", 1,
+                        mpr.Type.INT32, "", 0, len(filenames), None, cur_session_handler)
+
+    while (True):
+        dev.poll(50)
+
+def cur_session_handler(sig, event, id, val, timetag):
+    global session_cycling_filenames, cur_session_idx
+    try:
+        if event == mpr.Signal.Event.UPDATE:
+            new_idx = session_cycling_filenames[val % len(session_cycling_filenames)]
+            if new_idx != cur_session_idx:
+                load_file(new_idx, True)
+                cur_session_idx = new_idx
+                print("Changed session to: ", new_session)
+    except:
+        print('exception')
+        print(sig, val)
+
+def handle_cycling_inputs():
+    # TODO: get keyboard input for (h)elp, <-, ->, (e)xit
+    if platform.system() == 'Windows':
+        pass
+    else:
+        pass
 
 def load_file(filename, should_stage=False, should_clear=True, in_bg=True):
     """loads a session file with options for staging and clearing
@@ -195,15 +251,18 @@ def load_json(session_json, should_stage=False, should_clear=True, in_bg=True):
     return session_json["views"]
 
 def clear():
-    """clears all maps on the network
+    """clears all maps on the network except for connections to mappersession
     """
     global g, staged_maps, connected_maps
     staged_maps = []
     connected_maps = []
     g.poll(50)
     for map in g.maps():
-        map.release()
-        map.push()
+        dstSigs = map.signals(mpr.Location.DESTINATION)
+        # Only remove if mappersession isn't the destination
+        if "mappersession" not in dstSigs[0].device()[mpr.Property.NAME]:
+            map.release()
+            map.push()
     g.poll(50)
 
 def get_views(file, view_name):

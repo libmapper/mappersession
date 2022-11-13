@@ -68,3 +68,10 @@ loads a session JSON Dict with options for staging and clearing
 - optional param should_clear (Boolean): Clear all maps before loading the session, default True
 - optional param in_bg (Boolean): True if any staging should happen in a background thread, default True 
 - return (Dict): visual session information relevant to GUIs
+
+`session.cycle_files(filenames)`
+manages cycling through multiple session files. A libmapper signal is created
+that changes which session is currently active, or users can use the left/right
+arrow keys to change sessions.
+- param filenames (String): The JSON files to load (1st is loaded immediately)
+- return (None): Blocks while executing, should CTL+C or hit 'e' to exit

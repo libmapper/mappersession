@@ -5,8 +5,9 @@ def createParser():
     parser = argparse.ArgumentParser(description="Save or load a mapping session")
     parser.add_argument(
         '--load', type=argparse.FileType('r'),
+        nargs='+',
         metavar='PATH',
-        help="Session JSON file to load")
+        help="Session JSON file(s) to load")
     parser.add_argument(
         '--stage', action=argparse.BooleanOptionalAction,
         help="Set if missing devices and signals should be staged and reconnected as they appear during session load")
@@ -35,7 +36,11 @@ if __name__ == '__main__':
     elif (args.load is not None):
         should_stage = args.stage if args.stage != None else False
         should_clear = args.clear if args.clear != None else True
-        session.load_file(args.load.name, should_stage, should_clear, False)
+        if len(args.load) > 1:
+            filenames = [path.name for path in args.load]
+            session.cycle_files(filenames)
+        else:
+            session.load_file(args.load[0].name, should_stage, should_clear, False)
     elif (args.clear is not None):
         session.clear()
     else:

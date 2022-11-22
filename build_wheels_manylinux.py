@@ -21,7 +21,7 @@ def build_wheel(platform):
     cmd = ['docker', 'run', '--rm', '-e', f'PLAT={platform}',
            '-v', f'{os.getcwd()}:/package',
            f'quay.io/pypa/{platform}',
-           '/package/bindings/python/manylinux.sh']
+           '/package/manylinux.sh']
     print(' '.join(cmd))
     subprocess.check_call(cmd, stdout=open('/dev/null', 'wb'))
     return platform

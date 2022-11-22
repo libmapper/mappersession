@@ -2,17 +2,52 @@ name: Python wheels
 
 on:  
   push:
-    tags:
-      - '*'
+    #tags:
+    #  - '*'
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macOS-latest, macOS-10.15, windows-latest]
-    runs-on: ${{ matrix.os }}
+  Linux:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Build python wheel
+        run:
+          python3 build_wheels_manylinux.py
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./dist/*.whl
+  MacOS-latest:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Build python wheel
+        run:
+          python3 -m pip install --upgrade build
+          && python3 -m build
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./dist/*.whl
+  MacOS-10:
+    runs-on: macOS-10.15
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Build python wheel
+        run:
+          python3 -m pip install --upgrade build
+          && python3 -m build
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./dist/*.whl
+  Windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build python wheel

@@ -21,8 +21,6 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-[tool.hatch.build.hooks.custom]
-
 [project.urls]
 "Homepage" = "https://github.com/bboettcher3/mappersession"
 "Bug Tracker" = "https://github.com/bboettcher3/mappersession/issues"

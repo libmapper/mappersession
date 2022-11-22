@@ -11,6 +11,7 @@ if platform.system() == 'Windows':
 else:
     import select
 
+current_fileversion = "2.4"
 g = mpr.Graph()
 staging_thread = None
 kill_staging = False
@@ -217,7 +218,13 @@ def load_json(session_json, should_stage=False, should_clear=True, in_bg=True):
     :return (Dict): visual session information relevant to GUIs
     """
 
-    global g, staging_thread, staged_maps
+    global g, staging_thread, staged_maps, current_fileversion
+
+    # Update json if fileversion doesn't match current schema
+    if (session_json["fileversion"] != current_fileversion):
+        print("Loading legacy file with version: ", session_json["fileversion"])
+        print("Consider re-saving the session to update to the most recent version.")
+        session_json = upgrade_json(session_json)
 
     # Validate session according to schema
     schemaData = pkgutil.get_data(__name__, "mappingSessionSchema.json")
@@ -279,6 +286,41 @@ def get_views(file, view_name):
         if view["name"] == view_name:
             return view["data"]
     return None
+
+def upgrade_json(session_json):
+    global current_fileversion
+    # Same handling for 2.2 and 2.3, only difference is special field checks
+    if session_json["fileversion"] == "2.2" or session_json["fileversion"] == "2.3":
+        session_json["maps"] = []
+        session_json["description"] = ""
+        session_json["views"] = [] # Unable to use legacy views, some fields are not present
+        session_json["values"] = []
+        for map in session_json["mapping"]["maps"]:
+            newMap = {"sources": [], "destinations": []}
+            # Add sources and destinations
+            for src in map["sources"]:
+                newMap["sources"].append(src["name"])
+            for dst in map["destinations"]:
+                newMap["destinations"].append(dst["name"])
+            # Add other fields
+            newMap["expression"] = map["expression"]
+            newMap["muted"] = map["muted"]
+            newMap["process_loc"] = map["process_loc"]
+            newMap["protocol"] = map["protocol"]
+            newMap["scope"] = map["scope"]
+            newMap["use_inst"] = map["use_inst"]
+            newMap["version"] = map["version"]
+            # Special fields for 2.2
+            if "mode" in map:
+                if map["mode"] == "linear":
+                    newMap["expression"] = "y=linear(x,-,-,-,-)"
+            if "calibrating" in map["destinations"][0]:
+                if map["destinations"][0]["calibrating"] == True:
+                    newMap["expression"] = "y=linear(x,?,?,-,-)"
+            session_json["maps"].append(newMap)
+        del session_json["mapping"]
+    session_json["fileversion"] = current_fileversion
+    return session_json
 
 def find_sig(fullname):
     global g

@@ -35,7 +35,7 @@ def save(filename="", description="", values=[], view_name="", views=[]):
 
     # Create JSON from network state following the schema
     session = {}
-    session["fileversion"] = "2.3"
+    session["fileversion"] = current_fileversion
     session["description"] = description.strip("'")
     session["values"] = values
     session["views"] = views
@@ -77,7 +77,7 @@ def save(filename="", description="", values=[], view_name="", views=[]):
         # Add to maps
         session["maps"].append(newMap)
 
-    # Save into the file\
+    # Save into the file
     if filename != "":
         with open(filename.strip("'"), 'w', encoding='utf-8') as f:
             json.dump(session, f, ensure_ascii=False, indent=4)
@@ -221,10 +221,7 @@ def load_json(session_json, should_stage=False, should_clear=True, in_bg=True):
     global g, staging_thread, staged_maps, current_fileversion
 
     # Update json if fileversion doesn't match current schema
-    if (session_json["fileversion"] != current_fileversion):
-        print("Loading legacy file with version: ", session_json["fileversion"])
-        print("Consider re-saving the session to update to the most recent version.")
-        session_json = upgrade_json(session_json)
+    session_json = upgrade_json(session_json)
 
     # Validate session according to schema
     schemaData = pkgutil.get_data(__name__, "mappingSessionSchema.json")
@@ -289,37 +286,77 @@ def get_views(file, view_name):
 
 def upgrade_json(session_json):
     global current_fileversion
-    # Same handling for 2.2 and 2.3, only difference is special field checks
-    if session_json["fileversion"] == "2.2" or session_json["fileversion"] == "2.3":
-        session_json["maps"] = []
-        session_json["description"] = ""
-        session_json["views"] = [] # Unable to use legacy views, some fields are not present
-        session_json["values"] = []
-        for map in session_json["mapping"]["maps"]:
-            newMap = {"sources": [], "destinations": []}
-            # Add sources and destinations
-            for src in map["sources"]:
-                newMap["sources"].append(src["name"])
-            for dst in map["destinations"]:
-                newMap["destinations"].append(dst["name"])
-            # Add other fields
-            newMap["expression"] = map["expression"]
+    if session_json["fileversion"] == current_fileversion:
+        return session_json
+    version = float(session_json["fileversion"])
+    if version < 2.0 or version > float(current_fileversion):
+        print("Failed to load session with unsupported version: ", version)
+        return
+    print("Loading legacy file with version: ", version)
+    print("Consider re-saving the session to update to the most recent version.")
+    session_json["maps"] = []
+    session_json["description"] = ""
+    session_json["views"] = [] # Unable to use legacy views, some fields are not present
+    session_json["values"] = []
+    maps = session_json["mapping"]["connections"] if version <= 2.1 else session_json["mapping"]["maps"]
+
+    for map in maps:
+        newMap = {"sources": [], "destinations": []}
+        # Add sources and destinations
+        if version == 2.0:
+            srcKey = "source"
+            dstKey = "destination"
+        elif version == 2.1:
+            srcKey = "src"
+            dstKey = "dest"
+        else: # 2.2 and 2.3
+            srcKey = "sources"
+            dstKey = "destinations"
+        for src in map[srcKey]:
+            srcName = src[1:] if version <= 2.2 else src["name"]
+            newMap["sources"].append(srcName)
+        for dst in map[dstKey]:
+            dstName = dst[1:] if version <= 2.2 else dst["name"]
+            newMap["destinations"].append(dstName)
+        # Add other fields
+        # Fix expressions that use legacy signal identifiers
+        newExp = map["expression"].replace("src[0]", "x").replace("src", "x")\
+                                  .replace("dest[0]", "y").replace("dest", "y")\
+                                  .replace("dst[0]", "y").replace("dst", "y")\
+                                  .replace("s[0]", "x").replace("d[0]", "y")
+        newMap["expression"] = newExp
+        if "mute" in map: # <= 2.2
+            newMap["muted"] = map["mute"] == 1
+        elif "muted" in map: # 2.3
             newMap["muted"] = map["muted"]
+        else: # Unmute by default
+            newMap["muted"] = False
+        if "mode" in map:
+            if map["mode"] == "reverse": # <= 2.1
+                newMap["expression"] = "y=x"
+                tmpSrcs = newMap["sources"].copy()
+                newMap["sources"] = newMap["destinations"]
+                newMap["destinations"] = tmpSrcs
+            if map["mode"] == "linear": # 2.2
+                newMap["expression"] = "y=linear(x,-,-,-,-)"
+        if "calibrating" in map[dstKey][0]: # 2.2
+            if map[dstKey][0]["calibrating"] == True:
+                newMap["expression"] = "y=linear(x,?,?,-,-)"
+        if version <= 2.2:
+            newMap["process_loc"] = "SOURCE"
+            newMap["protocol"] = "UDP"
+            newMap["use_inst"] = False
+            newMap["version"] = 0
+        else: # 2.3
             newMap["process_loc"] = map["process_loc"]
             newMap["protocol"] = map["protocol"]
             newMap["scope"] = map["scope"]
             newMap["use_inst"] = map["use_inst"]
             newMap["version"] = map["version"]
-            # Special fields for 2.2
-            if "mode" in map:
-                if map["mode"] == "linear":
-                    newMap["expression"] = "y=linear(x,-,-,-,-)"
-            if "calibrating" in map["destinations"][0]:
-                if map["destinations"][0]["calibrating"] == True:
-                    newMap["expression"] = "y=linear(x,?,?,-,-)"
-            session_json["maps"].append(newMap)
-        del session_json["mapping"]
-    session_json["fileversion"] = current_fileversion
+        session_json["maps"].append(newMap)
+    
+    del session_json["mapping"]
+    session_json["fileversion"] = current_fileversion # Not really necessary I suppose
     return session_json
 
 def find_sig(fullname):

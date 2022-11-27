@@ -1,0 +1,24 @@
+{
+    "fileversion": "2.1", 
+    "mapping": {
+        "connections": [
+            {
+                "mute": 0, 
+                "dest": [
+                    "/dev2.1/drywet"
+                ], 
+                "srcMin": 0.0, 
+                "srcMax": 1.0, 
+                "destMin": 0.0, 
+                "src": [
+                    "/dev1.1/out1"
+                ], 
+                "boundMin": "none", 
+                "boundMax": "none", 
+                "destMax": 1.0, 
+                "mode": "expression", 
+                "expression": "dest[0]=0.75-3*src[0]"
+            }
+        ]
+    }
+}

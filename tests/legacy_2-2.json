@@ -1,0 +1,32 @@
+{
+    "fileversion": "2.2",
+    "mapping": {
+        "maps": [
+            {
+                "sources": [
+                    "/dev1.1/out1"
+                ],
+                "destinations": [
+                    "/dev2.1/drywet"
+                ],
+                "mute": 0,
+                "mode": "expression",
+                "srcMin": [
+                    -1
+                ],
+                "srcMax": [
+                    1
+                ],
+                "destMin": [
+                    0
+                ],
+                "destMax": [
+                    1
+                ],
+                "expression": "dst[0]=src[0]",
+                "boundMin": "none",
+                "boundMax": "none"
+            }
+        ]
+    }
+}

@@ -298,7 +298,7 @@ def upgrade_json(session_json):
     session_json["description"] = ""
     session_json["views"] = [] # Unable to use legacy views, some fields are not present
     session_json["values"] = []
-    maps = session_json["mapping"]["connections"] if version <= 2.1 else session_json["mapping"]["maps"]
+    maps = session_json["mapping"]["connections"] if version <= 2.1 else session_json["mapping"]["maps"] if version <= 2.3 else session_json["maps"]
 
     for map in maps:
         newMap = {"sources": [], "destinations": []}
@@ -354,8 +354,9 @@ def upgrade_json(session_json):
             newMap["use_inst"] = map["use_inst"]
             newMap["version"] = map["version"]
         session_json["maps"].append(newMap)
-    
-    del session_json["mapping"]
+
+    if "mapping" in session_json:
+        del session_json["mapping"]
     session_json["fileversion"] = current_fileversion # Not really necessary I suppose
     return session_json
 

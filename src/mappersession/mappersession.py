@@ -191,12 +191,12 @@ def handle_cycling_inputs():
     else:
         pass
 
-def load_file(filename, should_stage=False, should_clear=True, in_bg=True):
+def load_file(filename, should_stage=False, should_clear=False, in_bg=True):
     """loads a session file with options for staging and clearing
     
     :param filename (String): The JSON file to load
     :optional param should_stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
-    :optional param should_clear (Boolean): Clear all maps before loading the session, default True
+    :optional param should_clear (Boolean): Clear all maps before loading the session, default False
     :optional param in_bg (Boolean): True if any staging should happen in a background thread, default True 
     :return (Dict): visual session information relevant to GUIs
     """
@@ -208,12 +208,12 @@ def load_file(filename, should_stage=False, should_clear=True, in_bg=True):
     views = load_json(data, should_stage, should_clear, in_bg)
     return views
 
-def load_json(session_json, should_stage=False, should_clear=True, in_bg=True):
+def load_json(session_json, should_stage=False, should_clear=False, in_bg=True):
     """loads a session JSON Dict with options for staging and clearing
     
     :param session_json (Dict): A session JSON Dict to load
     :optional param should_stage (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default false
-    :optional param should_clear (Boolean): Clear all maps before loading the session, default True
+    :optional param should_clear (Boolean): Clear all maps before loading the session, default False
     :optional param in_bg (Boolean): True if any staging should happen in a background thread, default True 
     :return (Dict): visual session information relevant to GUIs
     """

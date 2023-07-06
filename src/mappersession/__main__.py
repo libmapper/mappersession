@@ -35,7 +35,7 @@ if __name__ == '__main__':
         session.save(args.save, args.description if args.description != None else "")
     elif (args.load is not None):
         should_stage = args.stage if args.stage != None else False
-        should_clear = args.clear if args.clear != None else True
+        should_clear = args.clear if args.clear != None else False
         if len(args.load) > 1:
             filenames = [path.name for path in args.load]
             session.cycle_files(filenames)

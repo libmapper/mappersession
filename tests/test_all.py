@@ -18,17 +18,17 @@ except:
 
 # An end-to-end test case for saving, loading and clearing sessions
 if __name__ == '__main__':
-    g = mpr.Graph()
-    g.poll(100)
+    graph = mpr.Graph()
+    graph.poll(100)
 
     # Load a test session
-    session.load_file("test_session.json")
+    session.load("test_session.json", graph=graph)
 
     # Wait a few seconds for graph to update
-    g.poll(2000)
+    graph.poll(2000)
 
     # Save the session
-    session.save("test_session_saved.json", "A simple test session")
+    session.save("test_session_saved.json", "A simple test session", graph=graph)
 
     # Check that the session files are identical
     og_file = open("test_session.json")
@@ -46,3 +46,5 @@ if __name__ == '__main__':
     os.remove("test_session_saved.json")
 
     print("Test complete")
+
+    graph.free()

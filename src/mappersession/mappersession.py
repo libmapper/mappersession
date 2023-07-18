@@ -6,6 +6,7 @@ import libmapper as mpr
 from jsonschema import validate
 import pkgutil
 import threading
+import re
 if platform.system() == 'Windows':
     import msvcrt
 else:
@@ -83,14 +84,24 @@ def save(filename="", description="", values=[], view_name="", views=[], graph=N
                                   for sig in map.signals(mpr.Location.DESTINATION)]
 
         # Other properties
-        # TODO: need to save ALL map properties!
-        newMap["expression"] = map[mpr.Property.EXPRESSION]
-        newMap["muted"] = map[mpr.Property.MUTED]
-        newMap["process_loc"] = map[mpr.Property.PROCESS_LOCATION].name
-        newMap["protocol"] = map[mpr.Property.PROTOCOL].name
-        newMap["scope"] = [dev[mpr.Property.NAME] for dev in map[mpr.Property.SCOPE]]
-        newMap["use_inst"] = map[mpr.Property.USE_INSTANCES]
-        newMap["version"] = map[mpr.Property.VERSION]
+        props = map.properties.copy()
+        for key in props:
+            val = props[key]
+            if key == "expr":
+                newMap["expression"] = val
+            if key == "process_loc":
+                newMap[key] = val.name
+            elif key == "protocol":
+                newMap[key] = val.name
+            elif key == "scope":
+                if val is not None:
+                    newMap[key] = [dev[mpr.Property.NAME] for dev in val]
+            elif key == "status":
+                newMap[key] = val.name
+            elif key == "is_local" or key == "num_sigs_in":
+                pass
+            else:
+                newMap[key] = val
 
         # Add to maps
         session["maps"].append(newMap)
@@ -128,39 +139,79 @@ def try_make_maps(graph, maps, device_map=None):
         # Match signals with different device names for mapping transportability
         
         srcs = [find_sigs(graph, s, device_map) for s in map["sources"]]
+        src_list_list = list(itertools.product(*srcs))
         dsts = find_sigs(graph, map["destinations"][0], device_map)
 
-        for d in dsts:
-            for s in list(itertools.product(*srcs)):
-                # Create map and remove from staged list
-                new_map = mpr.Map(list(s), d)
+        for dst in dsts:
+            for src_list in src_list_list:
+                # Check if map already exists
+#                pre = graph.maps().filter(mpr.Property.DESTINATION, dst)
+#                if pre:
+#                    print('found existing maps with matching dest, should we check them?')
+
+                # Create map
+                new_map = mpr.Map(list(src_list), dst)
                 if not new_map:
-                    print('error: failed to create map', map["sources"], "->", map["destinations"])
+                    print("error: failed to create map", map["sources"], "->", map["destinations"])
                     continue
-                print('created map: ', map["sources"], "->", map["destinations"])
+                print("created map:", [s for s in new_map.signals(mpr.Location.SOURCE)],
+                      "->", [s for s in new_map.signals(mpr.Location.DESTINATION)])
+
+                # when maps are created the source signals are alphabetised to create a standard representation
+                # if our source signals have swapped position we need to edit the expression
+                old_idx = 0
+                newExp = map["expression"]
+                if len(src_list) > 1:
+                    for i in list(src_list):
+                        new_idx = new_map.index(i)
+                        if new_idx != old_idx:
+                            print('need to remap expression sources:', old_idx, '->', new_idx)
+                            newExp = re.sub(r'x\$({0})'.format(old_idx), r'x${0}'.format(new_idx), newExp)
+                        old_idx = old_idx + 1
+                print('setting expression to', newExp)
+                new_map[mpr.Property.EXPRESSION] = newExp
 
                 # Set map properties
-                # TODO: need to iterate through ALL properties!
+                for key in map:
+                    val = map[key]
+                    if key == "sources" or key == "destinations" or key == "expression":
+                        pass # already handled
+                    elif key == "muted":
+                        new_map[mpr.Property.MUTED] = val
+                    elif key == "process_loc":
+                        if val == 'SOURCE' or val == 'src':
+                            new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.SOURCE
+                        elif val == 'DESTINATION' or val == 'dst':
+                            new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.DESTINATION
+                    elif key == "protocol":
+                        if val == 'udp' or val == 'UDP':
+                            new_map[mpr.Property.PROTOCOL] = mpr.Protocol.UDP
+                        elif val == 'tcp' or val == 'TCP':
+                            new_map[mpr.Property.PROTOCOL] = mpr.Protocol.TCP
+                    elif key == "scope":
+                        # TODO: Remove existing scopes?
 
-                new_map[mpr.Property.EXPRESSION] = map["expression"]
-                new_map[mpr.Property.MUTED] = map["muted"]
-                if map["process_loc"] == 'SOURCE':
-                    new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.SOURCE
-                elif map["process_loc"] == 'DESTINATION':
-                    new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.DESTINATION
-                new_map[mpr.Property.PROCESS_LOCATION] = map["process_loc"]
-                if map["protocol"] == 'udp' or map["protocol"] == 'UDP':
-                    new_map[mpr.Property.PROTOCOL] = mpr.Protocol.UDP
-                elif map["protocol"] == 'tcp' or map["protocol"] == 'TCP':
-                    new_map[mpr.Property.PROTOCOL] = mpr.Protocol.TCP
-                # TODO: map scope property may need to be translated
-                # new_map[mpr.Property.SCOPE] = map["scope"]
-                new_map[mpr.Property.USE_INSTANCES] = map["use_inst"]
-                new_map[mpr.Property.VERSION] = map["version"]
-
-                # TODO: session property should be an array
-                if 'session' in map:
-                    new_map['session'] = map['session']
+                        # Map scope property may need to be translated!
+                        for scope in map["scope"]:
+                            src_dev_names = [sig_name.split('/', 1)[0] for sig_name in map["sources"]]
+                            if scope in src_dev_names:
+                                idx = [sig_name.split('/', 1)[0] for sig_name in map["sources"]].index(scope)
+                                # Look up corresponding device in actual map.
+                                # Use src_list here since order may be different in new_map.signals()
+                                new_map.add_scope(src_list[idx].device())
+                            elif scope == map["destinations"][0].split('/', 1)[0]:
+                                new_map.add_scope(dst.device())
+                            else:
+                                dev = graph.devices().filter(mpr.Property.NAME, scope)
+                                if dev:
+                                    new_map.add_scope(dev.next())
+                                else:
+                                    print('failed to find scope device named', scope)
+                    elif key == "session":
+                        # TODO: session property should be an array
+                        new_map[key] = val
+                    else:
+                        new_map[key] = val
 
                 # Push to network
                 new_map.push()
@@ -373,41 +424,50 @@ def upgrade_json(session_json):
             dstName = dst[1:] if version <= 2.2 else dst["name"]
             newMap["destinations"].append(dstName)
         # Add other fields
-        # TODO: need to iterate through ALL properties!
-        # Fix expressions that use legacy signal identifiers
-        newExp = map["expression"].replace("src[0]", "x").replace("src", "x")\
-                                  .replace("dest[0]", "y").replace("dest", "y")\
-                                  .replace("dst[0]", "y").replace("dst", "y")\
-                                  .replace("s[0]", "x").replace("d[0]", "y")
-        newMap["expression"] = newExp
-        if "mute" in map: # <= 2.2
-            newMap["muted"] = map["mute"] == 1
-        elif "muted" in map: # 2.3
-            newMap["muted"] = map["muted"]
-        else: # Unmute by default
-            newMap["muted"] = False
-        if "mode" in map:
-            if map["mode"] == "reverse": # <= 2.1
-                newMap["expression"] = "y=x"
-                tmpSrcs = newMap["sources"].copy()
-                newMap["sources"] = newMap["destinations"]
-                newMap["destinations"] = tmpSrcs
-            if map["mode"] == "linear": # 2.2
-                newMap["expression"] = "y=linear(x,-,-,-,-)"
-        if "calibrating" in map[dstKey][0]: # 2.2
-            if map[dstKey][0]["calibrating"] == True:
-                newMap["expression"] = "y=linear(x,?,?,-,-)"
+
+        for key in map:
+            val = map[key]
+            if key == srcKey or key == dstKey:
+                pass
+            elif key == "expression" or key == "expr":
+                # Fix expressions that use legacy signal identifiers
+                print('upgrading expression...')
+                print('  ', val)
+                newExp = re.sub(r'(dest|dst)\[([\d+])\]', r'y$\2', val)\
+                           .replace('dest', 'y')\
+                           .replace('dst', 'y')
+                print('  ', newExp)
+                newExp = re.sub(r'src\[([\d+])\]', r'x$\1', newExp)\
+                           .replace('src', 'x')
+                print('  ', newExp)
+                if version <= 2.0:
+                    # TODO: make sure we are not garbling functions!
+                    # ok if string as nothing before/after except operator or bracket
+                    newExp = re.sub(r'd\[([\d+])\]', r'y$\1', newExp)
+                    newExp = re.sub(r's\[([\d+])\]', r'x$\1', newExp)
+                print('  ', newExp)
+                newMap["expression"] = newExp
+            elif key == "mute": # <= 2.2
+                newMap["muted"] = (val == 1)
+            elif key == "mode":
+                if val == "reverse": # <= 2.1
+                    newMap["expression"] = "dst[0]=src[0]"
+                    tmpSrcs = newMap["sources"].copy()
+                    newMap["sources"] = newMap["destinations"]
+                    newMap["destinations"] = tmpSrcs
+                if val == "linear": # 2.2
+                    newMap["expression"] = "y=linear(x,-,-,-,-)"
+            else:
+                newMap[key] = val
         if version <= 2.2:
+            # add some missing metadata - not actually necessary since these are the defaults
             newMap["process_loc"] = "SOURCE"
             newMap["protocol"] = "UDP"
             newMap["use_inst"] = False
             newMap["version"] = 0
-        else: # 2.3
-            newMap["process_loc"] = map["process_loc"]
-            newMap["protocol"] = map["protocol"]
-            newMap["scope"] = map["scope"]
-            newMap["use_inst"] = map["use_inst"]
-            newMap["version"] = map["version"]
+        if "calibrating" in map[dstKey][0]: # 2.2
+            if map[dstKey][0]["calibrating"] == True:
+                newMap["expression"] = "y=linear(x,?,?,-,-)"
         session_json["maps"].append(newMap)
 
     if "mapping" in session_json:

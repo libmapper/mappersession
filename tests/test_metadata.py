@@ -1,15 +1,29 @@
 import libmapper as mpr
-import os
+import os, signal
+
+done = False
+
+def handler_done(signum, frame):
+    global done
+    print('signal received, quitting...')
+    done = True
 
 # An end-to-end test case for saving, loading and clearing sessions
 if __name__ == '__main__':
-    dev = mpr.Device("DummyDevice")
+    signal.signal(signal.SIGINT, handler_done)
+    signal.signal(signal.SIGTERM, handler_done)
 
-    sig1 = dev.add_signal(mpr.Direction.INCOMING, "velocity_3d", 3,
-                        mpr.Type.FLOAT, "m/s", -9.9, 9.9, None)
-    sig2 = dev.add_signal(mpr.Direction.OUTGOING, "rgb_brightness", 3,
-                        mpr.Type.INT32, "lumens", 0, 255, None)
-    sig2.reserve_instances(4)
+    dev1 = mpr.Device("dev1")
+    sig2 = dev1.add_signal(mpr.Direction.OUTGOING, "out1", 3,
+                           mpr.Type.INT32, "lumens", 0, 255, None)
+
+    dev2 = mpr.Device("dev2")
+    sig1 = dev2.add_signal(mpr.Direction.INCOMING, "drywet", 3,
+                           mpr.Type.FLOAT, "m/s", -9.9, 9.9, None)
     
-    while(True):
-        dev.poll(100)
+    while(not done):
+        dev1.poll(100)
+        dev2.poll(100)
+
+    dev1.free()
+    dev2.free()

@@ -47,7 +47,8 @@
 				"var@m": 1,
 				"var@sMax": 127,
 				"var@sMin": 0,
-				"var@sRange": 127
+				"var@sRange": 127,
+				"arbitrary_property": true
 			}
 		]
 	},

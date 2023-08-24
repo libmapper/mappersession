@@ -4,9 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mappersession"
-version = "0.0.11"
+version = "0.0.12"
 authors = [
   { name="Brady Boettcher", email="bradyboettcher@gmail.com" },
+  { name="Joseph Malloch", email="joseph.malloch@gmail.com" },
 ]
 description = "Session management tools in python for the libmapper signal mapping framework"
 readme = "README.md"
@@ -22,5 +23,5 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/bboettcher3/mappersession"
-"Bug Tracker" = "https://github.com/bboettcher3/mappersession/issues"
+"Homepage" = "https://github.com/libmapper/mappersession"
+"Bug Tracker" = "https://github.com/libmapper/mappersession/issues"

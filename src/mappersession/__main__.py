@@ -21,6 +21,9 @@ def createParser():
         '--clear', action=argparse.BooleanOptionalAction,
         help="Clear currently active maps")
     parser.add_argument(
+        '--print_session_tags', action=argparse.BooleanOptionalAction,
+        help="Print a list of active session tags")
+    parser.add_argument(
         '--wait', action=argparse.BooleanOptionalAction,
         help="Wait for missing signals during session load and create maps once they appear.")
     parser.add_argument(
@@ -70,3 +73,5 @@ if __name__ == '__main__':
         persist = args.persist if args.persist != None else False
         filenames = [path.name for path in args.load]
         session.load(filenames, interactive=interactive, wait=wait, persist=persist)
+    if (args.print_session_tags is not None):
+        print('active session tags:', session.tags())

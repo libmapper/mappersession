@@ -98,13 +98,21 @@ def save(filename="", description="", values=[], view_name="", views=[], graph=N
                     newMap[key] = [dev[mpr.Property.NAME] for dev in val]
             elif key == "status":
                 newMap[key] = val.name
-            elif key == "is_local" or key == "num_sigs_in":
+            elif key == "is_local" or key == "num_sigs_in" or key == "session":
                 pass
             else:
                 newMap[key] = val
 
         # Add to maps
         session["maps"].append(newMap)
+
+        print('filename:', filename)
+        if filename != "":
+            # TODO: append filename rather than overwriting?
+            name = filename.strip("'").removesuffix(".json").split('/')[-1]
+            map['session'] = name
+            map.push()
+            graph.poll()
 
     # Save into the file
     if filename != "":
@@ -144,11 +152,6 @@ def try_make_maps(graph, maps, device_map=None):
 
         for dst in dsts:
             for src_list in src_list_list:
-                # Check if map already exists
-#                pre = graph.maps().filter(mpr.Property.DESTINATION, dst)
-#                if pre:
-#                    print('found existing maps with matching dest, should we check them?')
-
                 # Create map
                 new_map = mpr.Map(list(src_list), dst)
                 if not new_map:
@@ -156,6 +159,11 @@ def try_make_maps(graph, maps, device_map=None):
                     continue
                 print("created map:", [s for s in new_map.signals(mpr.Location.SOURCE)],
                       "->", [s for s in new_map.signals(mpr.Location.DESTINATION)])
+
+                # Check if map already exists
+#                print('map status is', new_map[mpr.Property.STATUS])
+#                if new_map[mpr.Property.STATUS] is not mpr.Status.STAGED:
+#                    print('map exists already, overwriting properties')
 
                 # when maps are created the source signals are alphabetised to create a standard representation
                 # if our source signals have swapped position we need to edit the expression
@@ -373,6 +381,19 @@ def clear(tag=None, graph=None):
               "->", [s for s in map.signals(mpr.Location.DESTINATION)])
         map.release()
     graph.poll()
+
+def tags(graph=None):
+    graph = check_graph(graph)
+    active_sessions = []
+    maps = graph.maps()
+
+    for map in maps:
+        if any([sig.device()["hidden"] for sig in map.signals()]):
+            continue
+
+        if map['session'] is not None and map['session'] not in active_sessions:
+            active_sessions.append(map['session'])
+    return active_sessions
 
 def get_views(file, view_name):
     """retrieves view-related GUI parameters from a session json file

@@ -106,13 +106,21 @@ def save(filename="", description="", values=[], view_name="", views=[], graph=N
         # Add to maps
         session["maps"].append(newMap)
 
-        print('filename:', filename)
         if filename != "":
-            # TODO: append filename rather than overwriting?
             name = filename.strip("'").removesuffix(".json").split('/')[-1]
-            map['session'] = name
+            tags = map['session']
+            if tags is not None:
+                if isinstance(tags, list):
+                    if name not in tags:
+                        tags.append(name)
+                elif tags != name:
+                    tags = [tags, name]
+            else:
+                tags = name
+            map['session'] = tags
             map.push()
-            graph.poll()
+
+    graph.poll()
 
     # Save into the file
     if filename != "":
@@ -217,6 +225,14 @@ def try_make_maps(graph, maps, device_map=None):
                                     print('failed to find scope device named', scope)
                     elif key == "session":
                         # TODO: session property should be an array
+                        tags = new_map['session']
+                        if tags:
+                            if isinstance(tags, list):
+                                if val not in tags:
+                                    tags.append(val)
+                            elif tags != val:
+                                tags = [tags, val]
+                            val = tags
                         new_map[key] = val
                     else:
                         new_map[key] = val
@@ -371,12 +387,20 @@ def clear(tag=None, graph=None):
 
     maps = graph.maps()
     if tag:
-        maps = maps.filter('session', tag)
+        maps = maps.filter('session', tag, mpr.Operator.EQUAL | mpr.Operator.ANY)
     for map in maps:
         dstSigs = map.signals(mpr.Location.DESTINATION)
         # Only remove if mappersession isn't the destination
         if "mappersession" in dstSigs[0].device()[mpr.Property.NAME]:
             continue
+        if tag:
+            tags = map['session']
+            if isinstance(tags, list):
+                # remove session tag from list and continue without removing
+                tags.remove(tag)
+                map['session'] = tags
+                map.push()
+                continue
         print("  unloading map:", [s for s in map.signals(mpr.Location.SOURCE)],
               "->", [s for s in map.signals(mpr.Location.DESTINATION)])
         map.release()
@@ -390,9 +414,13 @@ def tags(graph=None):
     for map in maps:
         if any([sig.device()["hidden"] for sig in map.signals()]):
             continue
-
-        if map['session'] is not None and map['session'] not in active_sessions:
-            active_sessions.append(map['session'])
+        tags = map['session']
+        if isinstance(tags, list):
+            for tag in tags:
+                if tag not in active_sessions:
+                    active_sessions.append(tag)
+        elif tags is not None and tags not in active_sessions:
+            active_sessions.append(tags)
     return active_sessions
 
 def get_views(file, view_name):

@@ -9,36 +9,49 @@ Simply run `pip install mappersession` in your python environment of choice.
 
 ### Usage from the command-line
 
-usage: [-h] [--load PATH [PATH ...]] [--wait | --no-wait] [--clear | --no-clear]
-                   [--save PATH] [--description DESCRIPTION]
+```
+usage:
+mappersession --load PATH [PATH ...] [--interactive] [--wait] [--persist] [--clear]
+mappersession --unload PATH [PATH ...]
+mappersession --save PATH [--description DESCRIPTION]
+mappersession --print_session_tags
 
-optional arguments:
--h, --help : Show the help message and exit
-
---load PATH [PATH ...] : Session JSON file(s) to load
-
---unload PATH [PATH ...] : Session JSON file(s) to unload
-
---wait, --no-wait : Set if session should wait for missing devices and signals and connected them as they appear during session load, default False
-
---clear, --no-clear : Set if maps should be cleared after saving and/or before load, default false
-
---save PATH : Save session as JSON file
-
---description DESCRIPTION : Description of session, used when saving
+options:
+-h, --help                  Show the help message and exit
+--load PATH [PATH ...]      Mapping session JSON file(s) to load
+--unload PATH [PATH ...]    Mapper session JSON file(s) to unload
+--save PATH                 Save mapping session as JSON file
+--interactive               Create libmapper signals for managing file
+                            loading and unloading.
+--wait                      Set if session should wait for missing
+                            devices and signals and connected them as
+                            they appear during session load
+--persist                   Remain active during session load and
+                            (re)create maps as they appear.
+--clear                     Set if maps should be cleared after saving
+                            and/or before load. Warning – this will
+                            clear all maps regardless of session tag!
+--print_session_tags        Print a list of active session tags
+--description DESCRIPTION   Description of session, used when saving
+```
 
 Examples:
 
-Clear all active maps, load a session file and wait for needed signals to appear:
+Load a session file and wait for needed signals to appear:
 
 ```
-python -m mappersession --load mysession.json --clear --wait
+python -m mappersession --load mysession.json --wait
 ```
 
 Unload a session file:
 
 ```
 python -m mappersession --unload mysession.json
+```
+
+Replace a running session with another
+```
+python -m mappersession --unload sesh1.json --load sesh2.json
 ```
 
 Start an interactive session with libmapper control signals for loading/unloading each file:
@@ -121,3 +134,12 @@ loads a session JSON Dict with options for staging and clearing
 - optional param `device_map` (Dict): A dictionary specifying correspondences between device names stored in a session file and names of devices active on the network.
 - optional param `graph`: A previously-allocated libmapper graph object to use. If not provided one will be allocated internally.
 - return (Dict): visual session information relevant to GUIs
+
+#### Get a list of active session tags
+
+```
+session.tags(graph=None)
+```
+
+- optional param `graph`: A previously-allocated libmapper graph object to use. If not provided one will be allocated internally.
+- return (List): a list of active session tags

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mappersession"
-version = "0.0.12"
+version = "0.0.13"
 authors = [
   { name="Brady Boettcher", email="bradyboettcher@gmail.com" },
   { name="Joseph Malloch", email="joseph.malloch@gmail.com" },

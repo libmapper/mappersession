@@ -87,12 +87,7 @@
                 "required": [
                     "sources",
                     "destinations",
-                    "expression",
-                    "muted",
-                    "process_loc",
-                    "protocol",
-                    "use_inst",
-                    "version"
+                    "expression"
                 ],
                 "properties": {
                     "sources": {

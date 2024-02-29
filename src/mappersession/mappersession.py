@@ -77,11 +77,11 @@ def save(filename="", description="", values=[], view_name="", views=[], graph=N
         newMap = {}
         # Source signals
         newMap["sources"] = [(sig.device()[mpr.Property.NAME] + "/" + sig[mpr.Property.NAME])
-                             for sig in map.signals(mpr.Location.SOURCE)]
+                             for sig in map.signals(mpr.Map.Location.SOURCE)]
 
         # Destination signals
         newMap["destinations"] = [(sig.device()[mpr.Property.NAME] + "/" + sig[mpr.Property.NAME])
-                                  for sig in map.signals(mpr.Location.DESTINATION)]
+                                  for sig in map.signals(mpr.Map.Location.DESTINATION)]
 
         # Other properties
         props = map.properties.copy()
@@ -165,8 +165,8 @@ def try_make_maps(graph, maps, device_map=None):
                 if not new_map:
                     print("error: failed to create map", map["sources"], "->", map["destinations"])
                     continue
-                print("created map:", [s for s in new_map.signals(mpr.Location.SOURCE)],
-                      "->", [s for s in new_map.signals(mpr.Location.DESTINATION)])
+                print("created map:", [s for s in new_map.signals(mpr.Map.Location.SOURCE)],
+                      "->", [s for s in new_map.signals(mpr.Map.Location.DESTINATION)])
 
                 # Check if map already exists
 #                print('map status is', new_map[mpr.Property.STATUS])
@@ -196,14 +196,14 @@ def try_make_maps(graph, maps, device_map=None):
                         new_map[mpr.Property.MUTED] = val
                     elif key == "process_loc":
                         if val == 'SOURCE' or val == 'src':
-                            new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.SOURCE
+                            new_map[mpr.Property.PROCESS_LOCATION] = mpr.Map.Location.SOURCE
                         elif val == 'DESTINATION' or val == 'dst':
-                            new_map[mpr.Property.PROCESS_LOCATION] = mpr.Location.DESTINATION
+                            new_map[mpr.Property.PROCESS_LOCATION] = mpr.Map.Location.DESTINATION
                     elif key == "protocol":
                         if val == 'udp' or val == 'UDP':
-                            new_map[mpr.Property.PROTOCOL] = mpr.Protocol.UDP
+                            new_map[mpr.Property.PROTOCOL] = mpr.Map.Protocol.UDP
                         elif val == 'tcp' or val == 'TCP':
-                            new_map[mpr.Property.PROTOCOL] = mpr.Protocol.TCP
+                            new_map[mpr.Property.PROTOCOL] = mpr.Map.Protocol.TCP
                     elif key == "scope":
                         # TODO: Remove existing scopes?
 
@@ -260,7 +260,7 @@ def start_session(graph, filenames):
     for filename in session_filenames:
         signame = filename.removesuffix(".json").split('/')[-1]
         # TODO: need to handle duplicate filenames?
-        sig = dev.add_signal(mpr.Direction.INCOMING, signame, 1, mpr.Type.INT32,
+        sig = dev.add_signal(mpr.Signal.Direction.INCOMING, signame, 1, mpr.Type.INT32,
                              None, 0, 1, None, cur_session_handler)
         sig.set_property("filename", filename, publish=False)
 
@@ -387,9 +387,11 @@ def clear(tag=None, graph=None):
 
     maps = graph.maps()
     if tag:
+        print('filtering map list by tag', tag)
         maps = maps.filter('session', tag, mpr.Operator.EQUAL | mpr.Operator.ANY)
     for map in maps:
-        dstSigs = map.signals(mpr.Location.DESTINATION)
+        print("checking map", map)
+        dstSigs = map.signals(mpr.Map.Location.DESTINATION)
         # Only remove if mappersession isn't the destination
         if "mappersession" in dstSigs[0].device()[mpr.Property.NAME]:
             continue
@@ -401,8 +403,8 @@ def clear(tag=None, graph=None):
                 map['session'] = tags
                 map.push()
                 continue
-        print("  unloading map:", [s for s in map.signals(mpr.Location.SOURCE)],
-              "->", [s for s in map.signals(mpr.Location.DESTINATION)])
+        print("  unloading map:", [s for s in map.signals(mpr.Map.Location.SOURCE)],
+              "->", [s for s in map.signals(mpr.Map.Location.DESTINATION)])
         map.release()
     graph.poll()
 
@@ -528,8 +530,8 @@ def find_sigs(graph, fullname, device_map=None):
     names = fullname.split('/', 1)
 
     '''
-    If device_map dictionary is provided we will attempt to match the exact device name,
-    otherwise we substitute a wildcard for the ordinal and return an array of all matching signals
+    If device_map dictionary is provided we will attempt to match the exact device name, otherwise
+    we substitute a wildcard for the device name and return an array of all matching signals.
     '''
 
     ret = []

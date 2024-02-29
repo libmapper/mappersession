@@ -95,7 +95,9 @@ session.save(filename="", description="", values=[],
 session.load(filename, interactive=False, wait=False, persist=False, background=False, device_map=None, graph=None)
 ```
 
-loads session files and optionally waits for signals. Maps will be tagged with the filename using a property named `session`.
+Loads session files and optionally waits for signals. If the optional argument `device_map` is provided, mappersession will attempt to match the exact device and signal name, otherwise it will substitute a wildcard for the device name and map to all matching signals. In either case signals belonging to devices that have the property `hidden=True` will not be matched.
+
+The filename will be included in the `session` property for loaded maps.
 
 - param `filename` (String or List): The session file(s) to load
 - optional param `interactive` (Boolean): Starts an interactive session for managing multiple session files. A libmapper control signal is created for corresponding to each file; setting the control signal value to a non-zero value loads the file, and setting it to zero unloads the file.
@@ -112,7 +114,7 @@ loads session files and optionally waits for signals. Maps will be tagged with t
 session.unload(filename, graph=None)
 ```
 
-loads session files and optionally waits for signals. Maps will be tagged with the filename using a property named `session`.
+Loads session files and optionally waits for signals. Maps will be tagged with the filename using a property named `session`.
 
 - param `filename` (String or List): The session file(s) to unload
 - optional param `graph`: A previously-allocated libmapper Graph object to use. If not provided one will be allocated internally.
@@ -124,7 +126,9 @@ loads session files and optionally waits for signals. Maps will be tagged with t
 session.load_json(session_json, name=None, wait=False, persist=False, background=False, device_map=None, graph=None)
 ```
 
-loads a session JSON Dict with options for staging and clearing
+Loads a session JSON Dict with options for staging and clearing. If the optional argument `device_map` is provided, mappersession will attempt to match the exact device and signal name, otherwise it will substitute a wildcard for the device name and map to all matching signals. In either case signals belonging to devices that have the property `hidden=True` will not be matched.
+
+If the optional `name` argument is provided it will be included in the  `session` property for loaded maps.
 
 - param session_json (Dict): A session JSON Dict to load
 - optional param `name` (String): A name for the session; any maps created by this session will be tagged with the name.

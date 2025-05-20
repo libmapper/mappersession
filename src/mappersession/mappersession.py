@@ -1,4 +1,5 @@
 import sys
+import time
 import platform
 import json
 import jsonschema
@@ -131,24 +132,36 @@ def save(filename="", description="", values=[], view_name="", views=[], graph=N
 
 # Internal staging method to be used in a thread
 # maps that should be staged should be added to the global 'staged_maps'
-def wait_for_sigs(persist=False):
+# TODO: add optional expiry for 'wait' argument, e.g. wait 10 seconds
+def wait_for_sigs():
     global g, staged_maps
 
-    while not stop_session and (len(staged_maps) or persist):
+    while not stop_session and (len(staged_maps)):
         # Try to create any staged maps that we can
         try:
             # TODO: don't bother running this unless new devices have appeared
             g.poll(1000)
+            now = time.monotonic()
             new_maps = try_make_maps(g, staged_maps, None)
-            if not persist:
-                for new_map in new_maps:
+            for new_map in new_maps:
+                if 'persist' not in new_map:
+                    print('removing new map from staged maps')
                     staged_maps.remove(new_map)
+
+            # Also check if any staged maps have expired
+            for staged_map in staged_maps:
+                if 'timeout' in staged_map:
+                    diff = now - staged_map['timeout']
+                    if diff > 0:
+                        print('removing expired map')
+                        staged_maps.remove(staged_map)
         except:
             pass
 
 # Attempts to create any eligible maps that have all sources and destination present 
 def try_make_maps(graph, maps, device_map=None):
 
+    now = time.monotonic()
     new_maps = []
     for map in maps:
         # Check if the map's signals are available
@@ -291,7 +304,7 @@ def load(filename, interactive=False, wait=False, persist=False, background=Fals
 
     :param filenames (String or List): The JSON file(s) to load
     :optional param interactive (Boolean): Create libmapper signals for controlling session loading/unloading, default False
-    :optional param wait (Boolean): Wait for missing signals and create maps when they appear, default False
+    :optional param wait (Boolean or numeric): Wait for missing signals and create maps when they appear. Default is False (no waiting), can also be set to number of seconds to wait or True to keep waiting until all maps have been created.
     :optional param persist (Boolean): Continue running after creating maps in session, and recreate them as matching signals (re)appear, default False
     :optional param background (Boolean): Wait for missing signals in a background thread, default True
     :optional param graph (libmapper Graph object): A previously-allocated libmapper graph object to use. If not provided one will be allocated internally.
@@ -318,7 +331,7 @@ def load_json(session_json, name=None, wait=False, persist=False, background=Fal
 
     :param session_json (Dict): A session JSON Dict to load
     :optional param name (String): Tag for maps created for this session
-    :optional param wait (Boolean): Manages continuous staging and reconnecting of missing devices and signals as they appear, default False
+    :optional param wait (Boolean or numeric): Wait for missing signals and create maps when they appear. Default is False (no waiting), can also be set to number of seconds to wait or True to keep waiting until all maps have been created.
     :optional param persist (Boolean): Continue running after creating maps in session, and recreate them as matching signals (re)appear, default False
     :optional param background (Boolean): True if any staging should happen in a background thread, default True
     :optional param graph (libmapper Graph object): A previously-allocated libmapper graph object to use. If not provided one will be allocated internally.
@@ -347,13 +360,27 @@ def load_json(session_json, name=None, wait=False, persist=False, background=Fal
         return None
 
     if wait or persist:
+        if wait == True:
+            timeout = False
+        elif wait == False or wait <= 0:
+            timeout = True
+        else:
+            timeout = time.monotonic() + wait
+        # add persist and timeout properties to each map
+        for map in session_json["maps"]:
+            if persist:
+                map['persist'] = True
+            elif wait:
+                map['timeout'] = timeout
+            print(map)
         staged_maps.extend(session_json["maps"])
+        print(staged_maps)
         if staging_thread == None:
             if background:
                 staging_thread = threading.Thread(target = wait_for_sigs, daemon = True)
                 staging_thread.start()
             else:
-                wait_for_sigs(persist)
+                wait_for_sigs()
     else:
         new_maps = try_make_maps(graph, session_json["maps"], device_map)
 

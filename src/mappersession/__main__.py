@@ -27,6 +27,10 @@ def createParser():
         '--wait', action=argparse.BooleanOptionalAction,
         help="Wait for missing signals during session load and create maps once they appear.")
     parser.add_argument(
+        '--wait_seconds', type=float,
+        metavar='SECONDS',
+        help="Wait N seconds for missing signals during session load and create maps if they appear.")
+    parser.add_argument(
         '--persist', action=argparse.BooleanOptionalAction,
         help="Remain active during session load and (re)create maps as they appear.")
     parser.add_argument(
@@ -70,6 +74,8 @@ if __name__ == '__main__':
     if (args.load is not None):
         interactive = args.interactive if args.interactive != None else False
         wait = args.wait if args.wait != None else False
+        if args.wait == None and args.wait_seconds != None:
+            wait = args.wait_seconds
         persist = args.persist if args.persist != None else False
         filenames = [path.name for path in args.load]
         session.load(filenames, interactive=interactive, wait=wait, persist=persist)

@@ -26,6 +26,8 @@ options:
 --wait                      Set if session should wait for missing
                             devices and signals and connected them as
                             they appear during session load
+--wait_seconds              Similar to `--wait` option but only waits
+                            for N seconds
 --persist                   Remain active during session load and
                             (re)create maps as they appear.
 --clear                     Set if maps should be cleared after saving
@@ -35,12 +37,18 @@ options:
 --description DESCRIPTION   Description of session, used when saving
 ```
 
-Examples:
+#### Examples:
 
-Load a session file and wait for needed signals to appear:
+Load a session file and wait indefinitely for needed signals to appear:
 
 ```
 python -m mappersession --load mysession.json --wait
+```
+
+Load a session file and wait 10 seconds for needed signals to appear:
+
+```
+python -m mappersession --load mysession.json --wait_seconds 10
 ```
 
 Unload a session file:
@@ -50,6 +58,7 @@ python -m mappersession --unload mysession.json
 ```
 
 Replace a running session with another
+
 ```
 python -m mappersession --unload sesh1.json --load sesh2.json
 ```
@@ -114,7 +123,7 @@ The filename will be included in the `session` property for loaded maps.
 session.unload(filename, graph=None)
 ```
 
-Loads session files and optionally waits for signals. Maps will be tagged with the filename using a property named `session`.
+Unloads session files by removing maps tagged with the filename using a property named `session`.
 
 - param `filename` (String or List): The session file(s) to unload
 - optional param `graph`: A previously-allocated libmapper Graph object to use. If not provided one will be allocated internally.
@@ -132,7 +141,7 @@ If the optional `name` argument is provided it will be included in the  `session
 
 - param session_json (Dict): A session JSON Dict to load
 - optional param `name` (String): A name for the session; any maps created by this session will be tagged with the name.
-- optional param `wait` (Boolean): Wait for missing signals during session load and create maps once they appear, default `False`
+- optional param `wait` (Boolean or Float): Wait for missing signals during session load and create maps once they appear, default `False`. Can be set to wait indefinitly (True) or for N seconds.
 - optional param `persist` (Boolean): Continue running after creating maps in session, and recreate them as matching signals (re)appear, default False
 - optional param `background` (Boolean): True if waiting for signals should happen in a background thread, default False
 - optional param `device_map` (Dict): A dictionary specifying correspondences between device names stored in a session file and names of devices active on the network.

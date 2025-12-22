@@ -192,7 +192,7 @@ def try_make_maps(graph, maps, device_map=None):
                 newExp = map["expression"]
                 if len(src_list) > 1:
                     for i in list(src_list):
-                        new_idx = new_map.index(i)
+                        new_idx = new_map.index(i, mpr.Location.SOURCE)
                         if new_idx != old_idx:
                             print('need to remap expression sources:', old_idx, '->', new_idx)
                             newExp = re.sub(r'x\$({0})'.format(old_idx), r'x${0}'.format(new_idx), newExp)
@@ -274,7 +274,8 @@ def start_session(graph, filenames):
         signame = filename.removesuffix(".json").split('/')[-1]
         # TODO: need to handle duplicate filenames?
         sig = dev.add_signal(mpr.Signal.Direction.INCOMING, signame, 1, mpr.Type.INT32,
-                             None, 0, 1, None, cur_session_handler)
+                             None, 0, 1, None)
+        sig.add_callback(cur_session_handler)
         sig.set_property("filename", filename, publish=False)
 
     while (not stop_session):
@@ -284,20 +285,20 @@ def start_session(graph, filenames):
     if graph is not None:
         graph.free()
 
-def cur_session_handler(sig, event, id, val, timetag):
+def cur_session_handler(obj, event, id):
     global session_filenames
     try:
-        if event == mpr.Signal.Event.UPDATE:
-            filename = sig['filename']
+        if event == mpr.Object.Event.REMOTE_UPDATE:
+            filename = obj['filename']
             if val == 0:
                 print('unloading', filename)
-                unload(filename, graph = sig.graph())
+                unload(filename, graph = obj.graph())
             else:
                 print('loading', filename)
-                load(filename, graph = sig.graph())
+                load(filename, graph = obj.graph())
     except:
         print('exception')
-        print(sig, val)
+        print(obj, event)
 
 def load(filename, interactive=False, wait=False, persist=False, background=False, device_map=None, graph=None):
     """loads a session file with options for staging

@@ -87,13 +87,13 @@ import mappersession as session
 
 ```
 session.save(filename="", description="", values=[],
-             viewName="", views=[], graph=None)
+             view_name="", views=[], graph=None)
 ```
 
 - param `filename`: The name of the file to save
 - optional param `description`: A short description of the current session
 - optional param `values`: Array of {name, value} pairs for signals to set on session load
-- optional param `viewName`: Name of the GUI that's adding metadata
+- optional param `view_name`: Name of the GUI that's adding metadata
 - optional param `views`: GUI related object for recreating the session
 - optional param `graph`: A previously-allocated libmapper Graph object to use. If not provided one will be allocated internally.
 - return: The session JSON object

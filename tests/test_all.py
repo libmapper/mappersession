@@ -28,7 +28,7 @@ if __name__ == '__main__':
     graph.poll(2000)
 
     # Save the session
-    session.save("test_session_saved.json", "A simple test session", graph=graph)
+    session.save("test_session_saved.json", "A simple test session", values=[{"one", 1}, {"two", 2}, {"three", 3}], graph=graph)
 
     # Check that the session files are identical
     og_file = open("test_session.json")

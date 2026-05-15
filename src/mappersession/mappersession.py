@@ -70,9 +70,14 @@ def save(filename="", description="", values=[], view_name="", views=[], graph=N
     session["maps"] = []
     for map in graph.maps():
 
-        # omit 'hidden' devices
-        if any([sig.device()["hidden"] for sig in map.signals()]):
-            print("Skipping hidden device")
+        # omit 'hidden' devices and signals
+        if any([sig["hidden"] or sig.device()["hidden"] for sig in map.signals()]):
+            print("Skipping hidden device or signal")
+            continue
+
+        # omit maps with the tag 'no_save'
+        if (map['no_save']):
+            print("Skipping map with 'no_save' tag")
             continue
 
         newMap = {}
@@ -178,8 +183,8 @@ def try_make_maps(graph, maps, device_map=None):
                 if not new_map:
                     print("error: failed to create map", map["sources"], "->", map["destinations"])
                     continue
-                print("created map:", [s for s in new_map.signals(mpr.Map.Location.SOURCE)],
-                      "->", [s for s in new_map.signals(mpr.Map.Location.DESTINATION)])
+                print("created map:", [s['name'] for s in new_map.signals(mpr.Map.Location.SOURCE)],
+                      "->", [s['name'] for s in new_map.signals(mpr.Map.Location.DESTINATION)])
 
                 # Check if map already exists
 #                print('map status is', new_map[mpr.Property.STATUS])
@@ -194,10 +199,10 @@ def try_make_maps(graph, maps, device_map=None):
                     for i in list(src_list):
                         new_idx = new_map.index(i, mpr.Location.SOURCE)
                         if new_idx != old_idx:
-                            print('need to remap expression sources:', old_idx, '->', new_idx)
+                            print('  remapping expression sources:', old_idx, '->', new_idx)
                             newExp = re.sub(r'x\$({0})'.format(old_idx), r'x${0}'.format(new_idx), newExp)
                         old_idx = old_idx + 1
-                print('setting expression to', newExp)
+                print("  set 'expression' to '{0}'".format(newExp))
                 new_map[mpr.Property.EXPRESSION] = newExp
 
                 # Set map properties
@@ -235,7 +240,7 @@ def try_make_maps(graph, maps, device_map=None):
                                 if dev:
                                     new_map.add_scope(dev.next())
                                 else:
-                                    print('failed to find scope device named', scope)
+                                    print("  failed to find scope device named '{0}'".format(scope))
                     elif key == "session":
                         # TODO: session property should be an array
                         tags = new_map['session']
@@ -318,14 +323,17 @@ def load(filename, interactive=False, wait=False, persist=False, background=Fals
     if not isinstance(filename, list):
         filename = [filename]
     views = []
+    values = []
 
     for name in filename:
         # Parse session file
         file = open(name)
         data = json.load(file)
         # Load session
-        views.extend(load_json(data, name, wait, persist, background, device_map, graph))
-    return views
+        session_views, session_values = load_json(data, name, wait, persist, background, device_map, graph)
+        views.extend(session_views)
+        values.extend(session_values)
+    return views, values
 
 def load_json(session_json, name=None, wait=False, persist=False, background=False, device_map=None, graph=None):
     """loads a session JSON Dict with options for staging
@@ -358,7 +366,7 @@ def load_json(session_json, name=None, wait=False, persist=False, background=Fal
         validate(instance=session_json, schema=schema)
     except jsonschema.exceptions.ValidationError as err:
         print(err)
-        return None
+        return None, None
 
     if wait or persist:
         if wait == True:
@@ -383,9 +391,11 @@ def load_json(session_json, name=None, wait=False, persist=False, background=Fal
             else:
                 wait_for_sigs()
     else:
-        new_maps = try_make_maps(graph, session_json["maps"], device_map)
+        maps = session_json["maps"]
+        new_maps = try_make_maps(graph, maps, device_map)
+        print("loaded {0}/{1} maps".format(len(new_maps), len(maps)))
 
-    return session_json["views"]
+    return session_json["views"], session_json["values"]
 
 def unload(filename, graph=None):
     """unloads session files
@@ -404,7 +414,6 @@ def unload(filename, graph=None):
 
     for name in filename:
         name = name.removesuffix(".json").split('/')[-1]
-        print("unloading session tag", name)
         clear(name, graph)
 
 def clear(tag=None, graph=None):
@@ -414,11 +423,11 @@ def clear(tag=None, graph=None):
     graph = check_graph(graph)
 
     maps = graph.maps()
+    unloaded = 0
     if tag:
-        print('filtering map list by tag', tag)
+        print("releasing maps with session tag '{0}'".format(tag))
         maps = maps.filter('session', tag, mpr.Operator.EQUAL | mpr.Operator.ANY)
     for map in maps:
-        print("checking map", map)
         dstSigs = map.signals(mpr.Map.Location.DESTINATION)
         # Only remove if mappersession isn't the destination
         if "mappersession" in dstSigs[0].device()[mpr.Property.NAME]:
@@ -431,10 +440,12 @@ def clear(tag=None, graph=None):
                 map['session'] = tags
                 map.push()
                 continue
-        print("  unloading map:", [s for s in map.signals(mpr.Map.Location.SOURCE)],
-              "->", [s for s in map.signals(mpr.Map.Location.DESTINATION)])
+        print("  releasing map:", [s['name'] for s in map.signals(mpr.Map.Location.SOURCE)],
+              "->", [s['name'] for s in map.signals(mpr.Map.Location.DESTINATION)])
         map.release()
+        unloaded += 1
     graph.poll()
+    print("released {0} maps".format(unloaded))
 
 def tags(graph=None):
     graph = check_graph(graph)

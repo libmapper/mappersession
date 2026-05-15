@@ -575,7 +575,14 @@ def find_sigs(graph, fullname, device_map=None):
 
     ret = []
 
-    if device_map and names[0] in device_map:
+    if device_map == None:
+        print("searching for wildcard match with device:signal name '*:{0}'".format(names[1]))
+        sigs = graph.signals().filter(mpr.Property.NAME, names[1])
+        for sig in sigs:
+            if not sig.device()['hidden']:
+                print("  found '{0}:{1}'".format(sig.device()['name'], names[1]))
+                ret.append(sig)
+    elif names[0] in device_map:
         names[0] = device_map[names[0]]
         print("searching for exact match with device:signal name '{0}:{1}'".format(names[0], names[1]))
         dev = graph.devices().filter(mpr.Property.NAME, names[0])
@@ -583,11 +590,5 @@ def find_sigs(graph, fullname, device_map=None):
             sig = dev.next().signals().filter(mpr.Property.NAME, names[1])
             if sig:
                 ret = [sig.next()]
-    else:
-        print("searching for wildcard match with device:signal name '*:{0}'".format(names[1]))
-        sigs = graph.signals().filter(mpr.Property.NAME, names[1])
-        for sig in sigs:
-            if not sig.device()['hidden']:
-                ret.append(sig)
 
     return ret
